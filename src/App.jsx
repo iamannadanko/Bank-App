@@ -6,23 +6,23 @@ import './App.css'
 function App() {
   const bank = useBankData();
 
-  // Поля форм авторизації та послуг
+  // Поля форм авторизації
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authName, setAuthName] = useState('')
   const [activeTab, setActiveTab] = useState('home')
   const [supportMessage, setSupportMessage] = useState('')
   
-  // Поля для ЗМІНИ ПАРОЛЯ та ВЕРИФІКАЦІЇ
+  // Зміна пароля та верифікація
   const [newPassword, setNewPassword] = useState('')
   const [passportNumber, setPassportNumber] = useState('')
   const [isVerifying, setIsVerifying] = useState(false)
   
   const [adminReplyText, setAdminReplyText] = useState({})
 
-  // Вікна переказів та налаштувань
+  // Вікна модалок
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false) // Стан для модалки налаштувань
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [recipientEmail, setRecipientEmail] = useState('')
   const [transferAmount, setTransferAmount] = useState('')
   const [transferDesc, setTransferDesc] = useState('')
@@ -34,7 +34,7 @@ function App() {
   const [serviceTarget, setServiceTarget] = useState('')
   const [serviceAmount, setServiceAmount] = useState('')
 
-  // Розумний обробник авторизації (вхід за хешем АБО чистим текстом)
+  // Розумний обробник авторизації
   const handleAuthSubmit = async (e) => {
     e.preventDefault()
     bank.setLoading(true)
@@ -70,16 +70,53 @@ function App() {
     }
   }
 
-  // Справжня зміна пароля з хешуванням SHA-256
+  // 🔄 ЕКСТРЕНЕ ВІДНОВЛЕННЯ ПАРОЛЯ ПРЯМО З ЕКРАНУ ВХОДУ (МАЛЮНОК 2)
+  const handleForgotPasswordSubmit = async (e) => {
+    e.preventDefault()
+    if (!authEmail.trim() || !newPassword.trim() || newPassword.length < 6) {
+      return alert('Введіть коректний Email та новий пароль від 6 символів!');
+    }
+
+    bank.setLoading(true)
+    try {
+      const { data: user } = await supabase.from('users').select('user_id').eq('email', authEmail.trim().toLowerCase()).maybeSingle()
+      
+      if (!user) {
+        bank.setLoading(false)
+        return alert('Користувача з такою поштою не знайдено!');
+      }
+
+      // Хешуємо новий пароль за криптографічним стандартом SHA-256
+      const hashedNewPassword = await bank.hashPassword(newPassword)
+
+      // Оновлюємо пароль у базі даних
+      const { error } = await supabase
+        .from('users')
+        .update({ password_hash: hashedNewPassword, password: null })
+        .eq('user_id', user.user_id)
+
+      if (error) throw error
+
+      alert('Пароль успішно оновлено та захищено хешем SHA-256! Спробуйте увійти. 🎉')
+      setNewPassword('')
+      bank.setAuthMode('login')
+    } catch (err) {
+      console.error(err)
+      alert('Помилка при відновленні пароля')
+    } finally {
+      bank.setLoading(false)
+    }
+  }
+
+  // Зміна пароля з налаштувань всередині кабінету
   const handleChangePassword = async (e) => {
     e.preventDefault()
     if (!newPassword.trim() || newPassword.length < 6) return alert('Пароль має бути не менше 6 символів!');
-    
     const hashedNew = await bank.hashPassword(newPassword)
     await supabase.from('users').update({ password_hash: hashedNew, password: null }).eq('user_id', bank.currentUserId)
     setNewPassword('')
     setIsSettingsOpen(false)
-    alert('Пароль успішно змінено на новий надійний хеш SHA-256! 🎉')
+    alert('Пароль успішно змінено на новий хеш SHA-256! 🎉')
   }
 
   // Швидка автоматична верифікація клієнтом
@@ -176,16 +213,49 @@ function App() {
 
       {!bank.isLoggedIn ? (
         <div className="auth-card">
-          <h2 className="auth-title">{bank.authMode === 'login' ? 'Вхід у банкінг' : 'Створити акаунт'}</h2>
-          <form onSubmit={handleAuthSubmit} className="bank-form">
-            {bank.authMode === 'register' && (
-              <div className="input-group"><label className="bank-label">Повне ім'я</label><input type="text" placeholder="Данько Анна" required value={authName} onChange={(e) => setAuthName(e.target.value)} className="bank-input" /></div>
-            )}
-            <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Електронна пошта</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
-            <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Пароль</label><input type="password" placeholder="••••••••" required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="bank-input" /></div>
-            <button type="submit" className="submit-button">{bank.loading ? 'Завантаження...' : (bank.authMode === 'login' ? 'Увійти' : 'Зареєструватися')}</button>
-          </form>
-          <p className="switch-auth-text">{bank.authMode === 'login' ? 'Ще немає акаунта? ' : 'Вже є акаунт? '}<span className="switch-auth-link" onClick={() => bank.setAuthMode(bank.authMode === 'login' ? 'register' : 'login')}>{bank.authMode === 'login' ? 'Зареєструватися' : 'Увійти'}</span></p>
+          {/* ФОРМА ВІДНОВЛЕННЯ ПАРОЛЯ ПРЯМО НА ЕКРАНІ ВХОДУ (МАЛЮНОК 2) */}
+          {bank.authMode === 'forgot' ? (
+            <>
+              <h2 className="auth-title">Відновлення пароля 🔒</h2>
+              <form onSubmit={handleForgotPasswordSubmit} className="bank-form">
+                <div style={{textAlign: 'left'}} className="input-group">
+                  <label className="bank-label">Введіть ваш Email</label>
+                  <input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" />
+                </div>
+                <div style={{textAlign: 'left'}} className="input-group">
+                  <label className="bank-label">Новий пароль (SHA-256)</label>
+                  <input type="password" placeholder="Мінімум 6 символів..." required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bank-input" />
+                </div>
+                <button type="submit" className="submit-button">{bank.loading ? 'Оновлення...' : 'Встановити новий пароль'}</button>
+              </form>
+              <p className="switch-auth-text">
+                <span className="switch-auth-link" onClick={() => { bank.setAuthMode('login'); setNewPassword(''); }}>Повернутися до входу</span>
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="auth-title">{bank.authMode === 'login' ? 'Вхід у банкінг' : 'Створити акаунт'}</h2>
+              <form onSubmit={handleAuthSubmit} className="bank-form">
+                {bank.authMode === 'register' && (
+                  <div className="input-group"><label className="bank-label">Повне ім'я</label><input type="text" placeholder="Данько Анна" required value={authName} onChange={(e) => setAuthName(e.target.value)} className="bank-input" /></div>
+                )}
+                <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Електронна пошта</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
+                <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Пароль</label><input type="password" placeholder="••••••••" required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="bank-input" /></div>
+                <button type="submit" className="submit-button">{bank.loading ? 'Завантаження...' : (bank.authMode === 'login' ? 'Увійти' : 'Зареєструватися')}</button>
+              </form>
+              <p className="switch-auth-text">
+                {bank.authMode === 'login' ? (
+                  <>
+                    <span>Ще немає акаунта? <span className="switch-auth-link" onClick={() => bank.setAuthMode('register')}>Зареєструватися</span></span>
+                    {/* КНОПКА ЗМІНИ ПАРОЛЯ НА ЕКРАНІ ВХОДУ */}
+                    <span style={{fontSize: '12px', marginTop: '5px'}} className="switch-auth-link" onClick={() => bank.setAuthMode('forgot')}>Забули пароль? 🔒</span>
+                  </>
+                ) : (
+                  <span>Вже є акаунт? <span className="switch-auth-link" onClick={() => bank.setAuthMode('login')}>Увійти</span></span>
+                )}
+              </p>
+            </>
+          )}
         </div>
       ) : bank.userRole === 'EMPLOYEE' ? (
         
@@ -252,7 +322,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* ⚙️ ОНОВЛЕНА СІТКА ДІЙ: ТЕПЕР ТУТ Є КНОПКА НАЛАШТУВАННЯ */}
                 <div className="actions-grid">
                   <button className="action-button" onClick={() => setActiveTab('services')}><span>➕</span><span className="action-label">Послуги</span></button>
                   <button className="action-button" style={{borderColor: '#2ec4b6'}} onClick={() => setIsModalOpen(true)}><span>💸</span><span className="action-label" style={{color: '#2ec4b6', fontWeight: 'bold'}}>Переказати</span></button>
@@ -281,17 +350,26 @@ function App() {
 
             {activeTab === 'services' && (
               <>
-                <div className="welcome-section"><h2 className="page-title">Платежі та послуги</h2></div>
+                <div className="welcome-section"><h2 className="page-title">Платежі та послуги</h2><p className="greet-label">Оберіть категорію для швидкої оплати</p></div>
                 <div className="services-grid4">
-                  <div className="service-card" onClick={() => { setActiveServiceForm('phone'); setServiceTarget(''); setServiceAmount(''); }}>📱 <p className="service-name">Мобільний зв'язок</p></div>
-                  <div className="service-card" onClick={() => { setActiveServiceForm('internet'); setServiceTarget(''); setServiceAmount(''); }}>🌐 <p className="service-name">Інтернет та ТБ</p></div>
-                  <div className="service-card" onClick={() => { setActiveServiceForm('utilities'); setServiceTarget(''); setServiceAmount(''); }}>🏠 <p className="service-name">Комунальні послуги</p></div>
-                  <div className="service-card" onClick={() => { setActiveServiceForm('charity'); setServiceTarget('ЗСУ'); setServiceAmount(''); }}>❤️ <p className="service-name">Донати на ЗСУ</p></div>
+                  <div className="service-card" onClick={() => { setActiveServiceForm('phone'); setServiceTarget(''); setServiceAmount(''); }}><span>📱</span> <p className="service-name">Мобільний зв'язок</p></div>
+                  <div className="service-card" onClick={() => { setActiveServiceForm('internet'); setServiceTarget(''); setServiceAmount(''); }}><span>🌐</span> <p className="service-name">Інтернет та ТБ</p></div>
+                  <div className="service-card" onClick={() => { setActiveServiceForm('utilities'); setServiceTarget(''); setServiceAmount(''); }}><span>🏠</span> <p className="service-name">Комунальні послуги</p></div>
+                  <div className="service-card" onClick={() => { setActiveServiceForm('charity'); setServiceTarget('ЗСУ'); setServiceAmount(''); }}><span>❤️</span> <p className="service-name">Донати на ЗСУ</p></div>
                 </div>
+
                 {activeServiceForm && (
                   <div className="service-form-box">
+                    <h4 style={{margin: '0 0 15px 0', color: '#2ec4b6'}}>
+                      {activeServiceForm === 'phone' && '📱 Поповнення мобільного'}
+                      {activeServiceForm === 'internet' && '🌐 Оплата Інтернету'}
+                      {activeServiceForm === 'utilities' && '🏠 Оплата Комунальних'}
+                      {activeServiceForm === 'charity' && '❤️ Благодійний внесок на ЗСУ'}
+                    </h4>
                     <form onSubmit={handleServiceSubmit} className="bank-form">
-                      {activeServiceForm !== 'charity' && <div className="input-group"><label className="bank-label">Реквізити</label><input type="text" required placeholder="Введіть номер..." value={serviceTarget} onChange={(e) => setServiceTarget(e.target.value)} className="bank-input" /></div>}
+                      {activeServiceForm !== 'charity' && (
+                        <div className="input-group"><label className="bank-label">Реквізити</label><input type="text" required placeholder="Введіть номер..." value={serviceTarget} onChange={(e) => setServiceTarget(e.target.value)} className="bank-input" /></div>
+                      )}
                       <div className="input-group"><label className="bank-label">Сума (UAH)</label><input type="number" required placeholder="0.00" value={serviceAmount} onChange={(e) => setServiceAmount(e.target.value)} className="bank-input" /></div>
                       <button type="submit" className="submit-button">Провести платіж</button>
                     </form>
@@ -308,9 +386,9 @@ function App() {
                   <div style={{marginBottom: '10px'}}>🛒 Супермаркети та продукти: **{bank.catSilpo || 0} ₴**</div>
                   <div style={{marginBottom: '10px'}}>📱 Мобільний зв'язок: **{bank.catPhone || 0} ₴**</div>
                   <div style={{marginBottom: '10px'}}>🌐 Інтернет та ТБ: **{bank.catInternet || 0} ₴**</div>
-                  <div style={{marginBottom: '10px'}}>💸 Перекази: **{bank.catTransfers || 0} ₴**</div>
+                  <div style={{marginBottom: '10px'}}>💸 Перекази (Card-to-Card): **{bank.catTransfers || 0} ₴**</div>
                   <hr style={{borderColor: '#334155', margin: '15px 0'}} />
-                  <p style={{margin: 0, fontSize: '13px'}}>Вільний капітал: **{bank.savingsRate || 0}%**</p>
+                  <p style={{margin: 0, fontSize: '13px', color: '#cbd5e1'}}>Вільний залишок капіталу: **{bank.savingsRate || 0}%**</p>
                 </div>
               </>
             )}
@@ -319,7 +397,7 @@ function App() {
               <>
                 <div className="welcome-section"><h2 className="page-title">Служба підтримки</h2></div>
                 <div className="service-form-box">
-                  <form onSubmit={handleSupportSubmit} className="bank-form"><div className="input-group"><label className="bank-label">Опишіть вашу проблему</label><textarea required rows="3" placeholder="Напишіть нам..." value={supportMessage} onChange={(e) => setSupportMessage(e.target.value)} className="bank-input" style={{fontFamily: 'inherit', resize: 'none'}} /></div><button type="submit" className="submit-button">Надіслати</button></form>
+                  <form onSubmit={handleSupportSubmit} className="bank-form"><div className="input-group"><label className="bank-label">Опишіть вашу проблему оператору</label><textarea required rows="3" placeholder="Напишіть нам..." value={supportMessage} onChange={(e) => setSupportMessage(e.target.value)} className="bank-input" style={{fontFamily: 'inherit', resize: 'none'}} /></div><button type="submit" className="submit-button">Надіслати звернення</button></form>
                 </div>
               </>
             )}
@@ -349,7 +427,7 @@ function App() {
         </div>
       )}
 
-      {/* ⚙️ НОВЕ МОДАЛЬНЕ ВІКНО НАЛАШТУВАНЬ (ЗМІНА ПАРОЛЯ ПРЯМО З ГОЛОВНОЇ) */}
+      {/* ⚙️ МОДАЛКА НАЛАШТУВАНЬ БЕЗПЕКИ */}
       {isSettingsOpen && (
         <div className="modal-overlay">
           <div className="modal-content" style={{background: '#1e293b', borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '350px'}}>
