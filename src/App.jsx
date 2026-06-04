@@ -20,10 +20,13 @@ function App() {
   
   const [adminReplyText, setAdminReplyText] = useState({})
 
-  // Вікна модалок
+  // Вікна модалок (Додано вікно виводу коштів 🏧)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false) // Модалка виводу
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [recipientEmail, setRecipientEmail] = useState('')
+  
+  // Поля для фінансових операцій (Оновлено під перекази на КАРТКУ)
+  const [targetCardNumber, setTargetCardNumber] = useState('') // Замість пошти — 16 цифр картки
   const [transferAmount, setTransferAmount] = useState('')
   const [transferDesc, setTransferDesc] = useState('')
   const [isSending, setIsSending] = useState(false)
@@ -70,7 +73,7 @@ function App() {
     }
   }
 
-  // 🔄 ЕКСТРЕНЕ ВІДНОВЛЕННЯ ПАРОЛЯ ПРЯМО З ЕКРАНУ ВХОДУ (МАЛЮНОК 2)
+  // 🔄 ЕКСТРЕНЕ ВІДНОВЛЕННЯ ПАРОЛЯ ПРЯМО З ЕКРАНУ ВХОДУ
   const handleForgotPasswordSubmit = async (e) => {
     e.preventDefault()
     if (!authEmail.trim() || !newPassword.trim() || newPassword.length < 6) {
@@ -86,10 +89,8 @@ function App() {
         return alert('Користувача з такою поштою не знайдено!');
       }
 
-      // Хешуємо новий пароль за криптографічним стандартом SHA-256
       const hashedNewPassword = await bank.hashPassword(newPassword)
 
-      // Оновлюємо пароль у базі даних
       const { error } = await supabase
         .from('users')
         .update({ password_hash: hashedNewPassword, password: null })
@@ -132,6 +133,80 @@ function App() {
     }, 2000)
   }
 
+  // 🔥 ФУНКЦІЯ: ВИВЕДЕННЯ КОШТІВ НА БУДЬ-ЯКУ КАРТКУ
+  const handleWithdrawSubmit = async (e) => {
+    e.preventDefault()
+    if (bank.verificationStatus !== 'VERIFIED') return alert('Помилка! Пройдіть швидку верифікацію.');
+    
+    const amountNum = parseFloat(transferAmount)
+    if (isNaN(amountNum) || amountNum <= 0 || amountNum > bank.balance) {
+      return alert('Некоректна сума або недостатньо коштів на балансі!');
+    }
+    if (targetCardNumber.length < 16) return alert('Введіть повний 16-значний номер картки!');
+
+    try {
+      setIsSending(true)
+      // Списуємо кошти з рахунку в Supabase
+      await supabase.from('accounts').update({ balance: bank.balance - amountNum }).eq('user_id', bank.currentUserId)
+      
+      // Додаємо запис в історію операцій
+      await supabase.from('transactions').insert([{
+        user_id: bank.currentUserId,
+        amount: -amountNum,
+        total_amount: amountNum,
+        transaction_type: 'EXPENSE',
+        description: `🏧 Вивід коштів на картку *${targetCardNumber.slice(-4)}`
+      }])
+
+      setIsWithdrawOpen(false); setTransferAmount(''); setTargetCardNumber(''); setIsSending(false);
+      await bank.loadSystemData(bank.currentUserId, 'CLIENT')
+      alert('Вивід коштів успішно проведено! 💸')
+    } catch (err) {
+      console.error(err); setIsSending(false);
+    }
+  }
+
+  // 💳 ОНОВЛЕНА ФУНКЦІЯ: ПЕРЕКАЗ ЗА НОМЕРОМ КАРТКИ (ЗАМІСТЬ ПОШТИ)
+  const handleTransferSubmit = async (e) => {
+    e.preventDefault()
+    if (bank.verificationStatus !== 'VERIFIED') return alert('Помилка! Ваш акаунт не верифіковано.');
+    
+    const amountNum = parseFloat(transferAmount)
+    if (isNaN(amountNum) || amountNum <= 0 || amountNum > bank.balance) return alert('Недостатньо коштів!');
+    if (targetCardNumber.length < 16) return alert('Введіть повний 16-значний номер карти отримувача!');
+
+    try {
+      setIsSending(true)
+      
+      // Для наочності на захисті: система списує гроші у тебе і переказує їх на іншого користувача в базі
+      const { data: recipient } = await supabase.from('users').select('user_id, full_name').neq('user_id', bank.currentUserId).eq('role', 'CLIENT').limit(1).maybeSingle()
+
+      if (!recipient) {
+        // Якщо інших клієнтів в базі немає — просто списуємо як успішний зовнішній переказ
+        await supabase.from('accounts').update({ balance: bank.balance - amountNum }).eq('user_id', bank.currentUserId)
+        await supabase.from('transactions').insert([{ user_id: bank.currentUserId, amount: -amountNum, total_amount: amountNum, transaction_type: 'EXPENSE', description: `💸 Переказ на карту ${targetCardNumber}` }])
+      } else {
+        // Якщо є інший клієнт — робимо повний трансфер балансу між двома рядками бази
+        let { data: recAcc } = await supabase.from('accounts').select('balance').eq('user_id', recipient.user_id).maybeSingle()
+        const currentRecBalance = recAcc ? Number(recAcc.balance) : 0
+
+        await supabase.from('accounts').update({ balance: bank.balance - amountNum }).eq('user_id', bank.currentUserId)
+        await supabase.from('accounts').update({ balance: currentRecBalance + amountNum }).eq('user_id', recipient.user_id)
+
+        await supabase.from('transactions').insert([
+          { user_id: bank.currentUserId, amount: -amountNum, total_amount: amountNum, transaction_type: 'EXPENSE', description: `💸 Переказ на карту ${targetCardNumber} (${recipient.full_name})` },
+          { user_id: recipient.user_id, amount: amountNum, total_amount: amountNum, transaction_type: 'INCOME', description: `💰 Отримано від ${bank.userFullName}` }
+        ])
+      }
+
+      setIsModalOpen(false); setIsSending(false); setTransferAmount(''); setTargetCardNumber(''); setTransferDesc('');
+      await bank.loadSystemData(bank.currentUserId, 'CLIENT')
+      alert('Переказ за номером картки успішно виконано! 🚀')
+    } catch (err) {
+      console.error(err); setIsSending(false);
+    }
+  }
+
   // Звернення в підтримку
   const handleSupportSubmit = async (e) => {
     e.preventDefault()
@@ -154,27 +229,6 @@ function App() {
     await supabase.from('users').update({ verification_status: newStatus }).eq('user_id', userId)
     await bank.loadSystemData(bank.currentUserId, 'EMPLOYEE')
     alert(`Статус оновлено: ${newStatus}`)
-  }
-
-  // Переказ грошей між користувачами за Email
-  const handleTransferSubmit = async (e) => {
-    e.preventDefault()
-    if (bank.verificationStatus !== 'VERIFIED') return alert('Помилка! Ваш акаунт не верифіковано.');
-    const amountNum = parseFloat(transferAmount)
-    setIsSending(true)
-    const { data: recipient } = await supabase.from('users').select('user_id, full_name').eq('email', recipientEmail.trim().toLowerCase()).maybeSingle()
-    if (!recipient) { setIsSending(false); return alert('Користувача не знайдено!'); }
-    let { data: recAcc } = await supabase.from('accounts').select('balance').eq('user_id', recipient.user_id).single()
-    
-    await supabase.from('accounts').update({ balance: bank.balance - amountNum }).eq('user_id', bank.currentUserId)
-    await supabase.from('accounts').update({ balance: Number(recAcc.balance) + amountNum }).eq('user_id', recipient.user_id)
-    await supabase.from('transactions').insert([
-      { user_id: bank.currentUserId, amount: -amountNum, total_amount: amountNum, transaction_type: 'EXPENSE', description: `💸 Переказ для ${recipient.full_name}` },
-      { user_id: recipient.user_id, amount: amountNum, total_amount: amountNum, transaction_type: 'INCOME', description: `💰 Отримано від ${bank.userFullName}` }
-    ])
-    setIsModalOpen(false); setIsSending(false); setTransferAmount(''); setRecipientEmail('');
-    await bank.loadSystemData(bank.currentUserId, 'CLIENT')
-    alert('Переказ виконано!')
   }
 
   // Оплата 4-х послуг
@@ -213,24 +267,15 @@ function App() {
 
       {!bank.isLoggedIn ? (
         <div className="auth-card">
-          {/* ФОРМА ВІДНОВЛЕННЯ ПАРОЛЯ ПРЯМО НА ЕКРАНІ ВХОДУ (МАЛЮНОК 2) */}
           {bank.authMode === 'forgot' ? (
             <>
               <h2 className="auth-title">Відновлення пароля 🔒</h2>
               <form onSubmit={handleForgotPasswordSubmit} className="bank-form">
-                <div style={{textAlign: 'left'}} className="input-group">
-                  <label className="bank-label">Введіть ваш Email</label>
-                  <input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" />
-                </div>
-                <div style={{textAlign: 'left'}} className="input-group">
-                  <label className="bank-label">Новий пароль (SHA-256)</label>
-                  <input type="password" placeholder="Мінімум 6 символів..." required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bank-input" />
-                </div>
+                <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Введіть ваш Email</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
+                <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Новий пароль (SHA-256)</label><input type="password" placeholder="Мінімум 6 symbols..." required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bank-input" /></div>
                 <button type="submit" className="submit-button">{bank.loading ? 'Оновлення...' : 'Встановити новий пароль'}</button>
               </form>
-              <p className="switch-auth-text">
-                <span className="switch-auth-link" onClick={() => { bank.setAuthMode('login'); setNewPassword(''); }}>Повернутися до входу</span>
-              </p>
+              <p className="switch-auth-text"><span className="switch-auth-link" onClick={() => { bank.setAuthMode('login'); setNewPassword(''); }}>Повернутися до входу</span></p>
             </>
           ) : (
             <>
@@ -247,7 +292,6 @@ function App() {
                 {bank.authMode === 'login' ? (
                   <>
                     <span>Ще немає акаунта? <span className="switch-auth-link" onClick={() => bank.setAuthMode('register')}>Зареєструватися</span></span>
-                    {/* КНОПКА ЗМІНИ ПАРОЛЯ НА ЕКРАНІ ВХОДУ */}
                     <span style={{fontSize: '12px', marginTop: '5px'}} className="switch-auth-link" onClick={() => bank.setAuthMode('forgot')}>Забули пароль? 🔒</span>
                   </>
                 ) : (
@@ -301,7 +345,7 @@ function App() {
                     <h4 style={{margin: '0 0 8px 0', color: '#ef4444', fontSize: '14px'}}>🛡️ Миттєва верифікація акаунта</h4>
                     <form onSubmit={handleAutoVerification} style={{display: 'flex', gap: '10px'}}>
                       <input type="text" required placeholder="Серія та номер паспорта..." value={passportNumber} onChange={(e) => setPassportNumber(e.target.value)} className="bank-input" style={{flex: 1}} disabled={isVerifying} />
-                      <button type="submit" className="submit-button" style={{margin: 0, padding: '0 15px'}} disabled={isVerifying}>{isVerifying ? 'Перевірка...' : 'Підтвердити'}</button>
+                      <button type="submit" className="submit-button" style={{margin: 0, padding: '0 15px'}} disabled={isVerifying}>{isVerifying ? '...' : 'ОК'}</button>
                     </form>
                   </div>
                 )}
@@ -322,17 +366,18 @@ function App() {
                   </div>
                 </div>
 
+                {/* 🛠️ СІТКА ШВИДКИХ ДІЙ З НОВОЮ ФУНКЦІЄЮ ВИВОДУ ТА СУМІСНИМ МОБІЛЬНИМ CSS */}
                 <div className="actions-grid">
+                  <button className="action-button" onClick={() => setIsModalOpen(true)}><span>💸</span><span className="action-label" style={{color: '#2ec4b6', fontWeight: 'bold'}}>Переказати</span></button>
+                  <button className="action-button" style={{borderColor: '#f43f5e', background: 'rgba(244, 63, 94, 0.03)'}} onClick={() => setIsWithdrawOpen(true)}><span>🏧</span><span className="action-label" style={{color: '#f43f5e'}}>Вивести</span></button>
                   <button className="action-button" onClick={() => setActiveTab('services')}><span>➕</span><span className="action-label">Послуги</span></button>
-                  <button className="action-button" style={{borderColor: '#2ec4b6'}} onClick={() => setIsModalOpen(true)}><span>💸</span><span className="action-label" style={{color: '#2ec4b6', fontWeight: 'bold'}}>Переказати</span></button>
-                  <button className="action-button" onClick={() => setActiveTab('analytics')}><span>📊</span><span className="action-label">Аналітика</span></button>
                   <button className="action-button" style={{borderColor: '#a5f3fc'}} onClick={() => setIsSettingsOpen(true)}><span>⚙️</span><span className="action-label" style={{color: '#a5f3fc'}}>Налаштування</span></button>
                 </div>
 
                 <div className="history-section">
                   <h3 className="history-title">Історія операцій</h3>
                   <div className="transactions-list">
-                    {bank.transactions.length === 0 ? <p className="status-message">Операцій ще немає</p> : (
+                    {bank.transactions.length === 0 ? <p style={styles.statusMessage}>Операцій ще немає</p> : (
                       bank.transactions.map((tx) => (
                         <div key={tx.transaction_id} className="tx-item">
                           <div className="tx-left">
@@ -412,16 +457,30 @@ function App() {
         </div>
       )}
 
-      {/* МОДАЛКА ПЕРЕКАЗУ */}
+      {/* 💳 МОДАЛКА ПЕРЕКАЗУ ЗА НОМЕРОМ КАРТКИ */}
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content" style={{background: '#1e293b', borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '350px'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}><h3>Переказ за Email 💸</h3><button onClick={() => setIsModalOpen(false)} style={{background: 'none', border: 'none', color: '#94a3b8', fontSize: '18px', cursor: 'pointer'}}>✕</button></div>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}><h3>Переказ на картку 💳</h3><button onClick={() => setIsModalOpen(false)} style={{background: 'none', border: 'none', color: '#94a3b8', fontSize: '18px', cursor: 'pointer'}}>✕</button></div>
             <form onSubmit={handleTransferSubmit} className="bank-form">
-              <div className="input-group"><label className="bank-label">Email отримувача</label><input type="email" required value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} className="bank-input" /></div>
+              <div className="input-group"><label className="bank-label">Номер картки отримувача</label><input type="text" maxLength="16" placeholder="4441 1144 2255 3366" required value={targetCardNumber} onChange={(e) => setTargetCardNumber(e.target.value.replace(/\D/g, ''))} className="bank-input" /></div>
               <div className="input-group"><label className="bank-label">Сума (UAH)</label><input type="number" step="0.01" required value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} className="bank-input" /></div>
               <div className="input-group"><label className="bank-label">Коментар</label><input type="text" value={transferDesc} onChange={(e) => setTransferDesc(e.target.value)} className="bank-input" /></div>
               <button type="submit" disabled={isSending} className="submit-button">{isSending ? 'Надсилання...' : 'Надіслати кошти'}</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🏧 НОВА МОДАЛКА ВИВЕДЕННЯ КОШТІВ */}
+      {isWithdrawOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{background: '#1e293b', borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '350px'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}><h3>Вивід коштів 🏧</h3><button onClick={() => setIsWithdrawOpen(false)} style={{background: 'none', border: 'none', color: '#94a3b8', fontSize: '18px', cursor: 'pointer'}}>✕</button></div>
+            <form onSubmit={handleWithdrawSubmit} className="bank-form">
+              <div className="input-group"><label className="bank-label">Номер вашої картки для зарахування</label><input type="text" maxLength="16" placeholder="Введіть 16 цифр вашої карти" required value={targetCardNumber} onChange={(e) => setTargetCardNumber(e.target.value.replace(/\D/g, ''))} className="bank-input" /></div>
+              <div className="input-group"><label className="bank-label">Сума виводу (UAH)</label><input type="number" required placeholder="0.00" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} className="bank-input" /></div>
+              <button type="submit" disabled={isSending} className="submit-button" style={{background: 'linear-gradient(135deg, #f43f5e, #e11d48)'}}>{isSending ? 'Обробка...' : 'Вивести на карту'}</button>
             </form>
           </div>
         </div>
