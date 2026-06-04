@@ -134,7 +134,7 @@ function App() {
     await supabase.from('support_tickets').insert([{ user_id: currentUserId, message: supportMessage.trim() }])
     setSupportMessage('')
     await loadSystemData(currentUserId, 'CLIENT')
-    alert('Ваше звернення надіслано в службу підтримки банку!')
+    alert('Ваше звернення надіслано в службу підтримки банку!!!')
   }
 
   // Відповісти на тикет (Працівник банку)
