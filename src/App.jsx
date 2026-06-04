@@ -48,10 +48,8 @@ function App() {
       const { data: user } = await supabase.from('users').select('*').eq('email', inputEmail).maybeSingle()
       
       if (user && (user.password_hash === hashedPassword || user.password_hash === authPassword || user.password === authPassword)) {
-        bank.setCurrentUserId(user.user_id)
-        bank.setUserRole(user.role || 'CLIENT')
-        bank.setIsLoggedIn(true)
-        await bank.loadSystemData(user.user_id, user.role || 'CLIENT')
+        // Запускаємо логіку збереження сесії в localStorage
+        bank.setIsLoggedIn(user.user_id, user.role || 'CLIENT')
       } else {
         alert('Неправильний email або пароль!')
       }
@@ -66,8 +64,9 @@ function App() {
         await supabase.from('accounts').insert([{ user_id: newUser.user_id, balance: 5000.00, iban: randomIban }])
         await supabase.from('transactions').insert([{ user_id: newUser.user_id, amount: 5000.00, total_amount: 5000.00, transaction_type: 'INCOME', description: '🎉 Стартовий бонус Hephaestus Premium' }])
         alert('Акаунт успішно створено! Пройдіть автоматичну верифікацію на Головній.');
-        bank.setCurrentUserId(newUser.user_id); bank.setUserRole('CLIENT'); bank.setIsLoggedIn(true);
-        await bank.loadSystemData(newUser.user_id, 'CLIENT')
+        
+        // Реєструємо і відразу зберігаємо сесію
+        bank.setIsLoggedIn(newUser.user_id, 'CLIENT')
       }
       bank.setLoading(false)
     }
@@ -238,7 +237,8 @@ function App() {
           <span className="logo-icon">⚡</span>
           <h1 className="logo-text">Hephaestus {bank.userRole === 'EMPLOYEE' ? 'Staff' : 'Construct'}</h1>
         </div>
-        {bank.isLoggedIn && <button onClick={() => bank.setIsLoggedIn(false)} className="logout-button">Вихід 🚪</button>}
+        {/* ОНОВЛЕНО: Тепер викликається bank.logoutUser(), який повністю чистить сесію сховища */}
+        {bank.isLoggedIn && <button onClick={() => bank.logoutUser()} className="logout-button">Вихід 🚪</button>}
       </header>
 
       {!bank.isLoggedIn ? (
@@ -247,7 +247,7 @@ function App() {
             <>
               <h2 className="auth-title">Відновлення пароля 🔒</h2>
               <form onSubmit={handleForgotPasswordSubmit} className="bank-form">
-                <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Введіть ваш Email</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
+                <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Ваш Email</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
                 <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Новий пароль (SHA-256)</label><input type="password" placeholder="Мінімум 6 символів..." required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bank-input" /></div>
                 <button type="submit" className="submit-button">Встановити новий пароль</button>
               </form>
@@ -281,7 +281,7 @@ function App() {
         
         /* 🏢 ПАНЕЛЬ ПРАЦІВНИКА */
         <div className="app-screen">
-          <div className="welcome-section"><h2 className="page-title">Панель Працівника Банку</h2><p className="greet-label">Управління клієнтами</p></div>
+          <div className="welcome-section"><h2 className="page-title">Paneli pratsivnyka banku</h2><p className="greet-label">Управління клієнтами</p></div>
           <div className="history-section">
             <h3 className="history-title">📋 Запити на верифікацію (KYC)</h3>
             <div className="transactions-list">

@@ -1,13 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 
 export function useBankData() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  // Ініціалізуємо базові стани відразу зі сховища localStorage
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem('bank_isLoggedIn') === 'true'
+  })
   const [authMode, setAuthMode] = useState('login')
-  const [currentUserId, setCurrentUserId] = useState(null)
-  const [userRole, setUserRole] = useState('CLIENT')
+  const [currentUserId, setCurrentUserId] = useState(() => {
+    const savedId = localStorage.getItem('bank_currentUserId');
+    return savedId ? Number(savedId) : null
+  })
+  const [userRole, setUserRole] = useState(() => {
+    return localStorage.getItem('bank_userRole') || 'CLIENT'
+  })
+  
   const [verificationStatus, setVerificationStatus] = useState('PENDING')
-
   const [userFullName, setUserFullName] = useState('')
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState([])
@@ -51,6 +59,7 @@ export function useBankData() {
   }
 
   async function loadSystemData(userId, role) {
+    if (!userId) return;
     setLoading(true)
     try {
       if (role === 'EMPLOYEE') {
@@ -81,8 +90,42 @@ export function useBankData() {
     }
   }
 
+  // 🔄 АВТОМАТИЧНИЙ ЗАПУСК ПРИ ОНОВЛЕННІ СТОРІНКИ (ПЕРЕВІРКА СЕСІЇ)
+  useEffect(() => {
+    if (isLoggedIn && currentUserId) {
+      loadSystemData(currentUserId, userRole)
+    }
+  }, [isLoggedIn, currentUserId, userRole])
+
+  // Функція для запису сесії під час успішного входу
+  const loginUser = (userId, role) => {
+    localStorage.setItem('bank_isLoggedIn', 'true')
+    localStorage.setItem('bank_currentUserId', userId.toString())
+    localStorage.setItem('bank_userRole', role)
+    
+    setCurrentUserId(userId)
+    setUserRole(role)
+    setIsLoggedIn(true)
+  }
+
+  // Функція для повної очистки сесії при виході
+  const logoutUser = () => {
+    localStorage.removeItem('bank_isLoggedIn')
+    localStorage.removeItem('bank_currentUserId')
+    localStorage.removeItem('bank_userRole')
+    
+    setCurrentUserId(null)
+    setUserRole('CLIENT')
+    setIsLoggedIn(false)
+    
+    // Очищаємо дані інтерфейсу
+    setUserFullName('')
+    setBalance(0)
+    setTransactions([])
+  }
+
   return {
-    isLoggedIn, setIsLoggedIn, authMode, setAuthMode, currentUserId, setCurrentUserId,
+    isLoggedIn, setIsLoggedIn: loginUser, logoutUser, authMode, setAuthMode, currentUserId, setCurrentUserId,
     userRole, setUserRole, verificationStatus, setVerificationStatus, userFullName,
     balance, setBalance, transactions, setTransactions, clientTickets, setClientTickets,
     allUsers, allTickets, loading, setLoading, hashPassword, loadSystemData,
