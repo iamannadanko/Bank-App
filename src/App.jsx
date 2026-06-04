@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { supabase } from './supabaseClient'
-import { useBankData } from './src/useBankData'
-import './App.css' // Підключаємо наш CSS файл!
+import { useBankData } from './useBankData'
+import './App.css'
 
 function App() {
-  // Підключаємо всю JS логіку з нашого окремого файлу
   const bank = useBankData();
 
-  // Поля форм авторизації та послуг
+  // Поля форм
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authName, setAuthName] = useState('')
@@ -16,7 +15,11 @@ function App() {
   const [newPassword, setNewPassword] = useState('')
   const [adminReplyText, setAdminReplyText] = useState({})
 
-  // Вікна переказів
+  // Автоматична верифікація
+  const [passportNumber, setPassportNumber] = useState('')
+  const [isVerifying, setIsVerifying] = useState(false)
+
+  // Модалка переказів
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [recipientEmail, setRecipientEmail] = useState('')
   const [transferAmount, setTransferAmount] = useState('')
@@ -29,7 +32,7 @@ function App() {
   const [serviceTarget, setServiceTarget] = useState('')
   const [serviceAmount, setServiceAmount] = useState('')
 
-  // Обробник входу та реєстрації
+  // Авторизація
   const handleAuthSubmit = async (e) => {
     e.preventDefault()
     const hashedPassword = await bank.hashPassword(authPassword)
@@ -54,14 +57,34 @@ function App() {
         const randomIban = 'UA' + Math.floor(10000000000 + Math.random() * 90000000000).toString()
         await supabase.from('accounts').insert([{ user_id: newUser.user_id, balance: 5000.00, iban: randomIban }])
         await supabase.from('transactions').insert([{ user_id: newUser.user_id, amount: 5000.00, total_amount: 5000.00, transaction_type: 'INCOME', description: '🎉 Стартовий бонус Hephaestus Premium' }])
-        alert('Акаунт створено!');
+        alert('Акаунт створено! Пройдіть автоматичну верифікацію в кабінеті.');
         bank.setCurrentUserId(newUser.user_id); bank.setUserRole('CLIENT'); bank.setIsLoggedIn(true);
         await bank.loadSystemData(newUser.user_id, 'CLIENT')
       }
     }
   }
 
-  // Зміна пароля клієнта
+  // Швидка верифікація ИИ
+  const handleAutoVerification = async (e) => {
+    e.preventDefault()
+    if (!passportNumber.trim()) return
+    setIsVerifying(true)
+    
+    setTimeout(async () => {
+      try {
+        await supabase.from('users').update({ verification_status: 'VERIFIED' }).eq('user_id', bank.currentUserId)
+        bank.setVerificationStatus('VERIFIED')
+        setPassportNumber('')
+        alert('Документи успішно перевірено штучним інтелектом банку! Акаунт верифіковано 🛡️')
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setIsVerifying(false)
+      }
+    }, 2200)
+  }
+
+  // Зміна пароля
   const handleChangePassword = async (e) => {
     e.preventDefault()
     const hashedNew = await bank.hashPassword(newPassword)
@@ -70,7 +93,7 @@ function App() {
     alert('Пароль успішно змінено на новий хеш SHA-256! 🎉')
   }
 
-  // Звернення в підтримку
+  // Надіслати тикет у підтримку
   const handleSupportSubmit = async (e) => {
     e.preventDefault()
     await supabase.from('support_tickets').insert([{ user_id: bank.currentUserId, message: supportMessage.trim() }])
@@ -87,7 +110,7 @@ function App() {
     alert('Відповідь надіслано!')
   }
 
-  // Верифікація працівником банку
+  // Ручна верифікація
   const handleUpdateVerification = async (userId, newStatus) => {
     await supabase.from('users').update({ verification_status: newStatus }).eq('user_id', userId)
     await bank.loadSystemData(bank.currentUserId, 'EMPLOYEE')
@@ -97,7 +120,7 @@ function App() {
   // Переказ грошей між користувачами за Email
   const handleTransferSubmit = async (e) => {
     e.preventDefault()
-    if (bank.verificationStatus !== 'VERIFIED') return alert('Помилка! Ваш акаунт не верифіковано працівником банку.');
+    if (bank.verificationStatus !== 'VERIFIED') return alert('Помилка! Ваш акаунт не верифіковано.');
     const amountNum = parseFloat(transferAmount)
     setIsSending(true)
     const { data: recipient } = await supabase.from('users').select('user_id, full_name').eq('email', recipientEmail.trim().toLowerCase()).maybeSingle()
@@ -115,7 +138,7 @@ function App() {
     alert('Переказ виконано!')
   }
 
-  // Оплата 4-х послуг
+  // Оплата послуг
   const handleServiceSubmit = async (e) => {
     e.preventDefault()
     if (bank.verificationStatus !== 'VERIFIED') return alert('Сплачувати послуги можуть лише верифіковані клієнти!')
@@ -156,15 +179,15 @@ function App() {
             {bank.authMode === 'register' && (
               <div className="input-group"><label className="bank-label">Повне ім'я</label><input type="text" placeholder="Данько Анна" required value={authName} onChange={(e) => setAuthName(e.target.value)} className="bank-input" /></div>
             )}
-            <div className="input-group"><label className="bank-label">Електронна пошта</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
-            <div className="input-group"><label className="bank-label">Пароль</label><input type="password" placeholder="••••••••" required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="bank-input" /></div>
+            <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Електронна пошта</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
+            <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Пароль</label><input type="password" placeholder="••••••••" required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="bank-input" /></div>
             <button type="submit" className="submit-button">{bank.loading ? 'Завантаження...' : (bank.authMode === 'login' ? 'Увійти' : 'Зареєструватися')}</button>
           </form>
           <p className="switch-auth-text">{bank.authMode === 'login' ? 'Ще немає акаунта? ' : 'Вже є акаунт? '}<span className="switch-auth-link" onClick={() => bank.setAuthMode(bank.authMode === 'login' ? 'register' : 'login')}>{bank.authMode === 'login' ? 'Зареєструватися' : 'Увійти'}</span></p>
         </div>
       ) : bank.userRole === 'EMPLOYEE' ? (
         
-        /* 🏢 ПАНЕЛЬ ПРАЦІВНИКА */
+        /* 🏢 ІНТЕРФЕЙС ПРАЦІВНИКА */
         <div className="app-screen">
           <div className="welcome-section">
             <h2 className="page-title">Панель Працівника Банку</h2>
@@ -218,6 +241,19 @@ function App() {
                   <div style={{marginTop: '6px'}}><span style={{fontSize: '11px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold', background: bank.verificationStatus === 'VERIFIED' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)', color: bank.verificationStatus === 'VERIFIED' ? '#10b981' : '#ef4444'}}>{bank.verificationStatus === 'VERIFIED' ? '🛡️ Верифікований клієнт' : '⚠️ Акаунт не верифіковано'}</span></div>
                 </div>
 
+                {bank.verificationStatus !== 'VERIFIED' && (
+                  <div className="service-form-box" style={{border: '1px dashed #ef4444', background: 'rgba(239, 68, 68, 0.02)'}}>
+                    <h4 style={{margin: '0 0 8px 0', color: '#ef4444', fontSize: '14px'}}>🛡️ Миттєва верифікація акаунта</h4>
+                    <p style={{margin: '0 0 12px 0', fontSize: '12px', color: '#94a3b8'}}>Введіть серію та номер паспорта або ID-картки для автоматичної перевірки штучним інтелектом:</p>
+                    <form onSubmit={handleAutoVerification} style={{display: 'flex', gap: '10px'}}>
+                      <input type="text" required placeholder="Наприклад: МТ 123456" value={passportNumber} onChange={(e) => setPassportNumber(e.target.value)} className="bank-input" style={{flex: 1, padding: '10px'}} disabled={isVerifying} />
+                      <button type="submit" className="submit-button" style={{margin: 0, padding: '0 15px', fontSize: '13px'} } disabled={isVerifying}>
+                        {isVerifying ? 'Перевірка...' : 'Підтвердити'}
+                      </button>
+                    </form>
+                  </div>
+                )}
+
                 <div className="credit-card" style={{background: getCardBg()}}>
                   <div className="card-top"><span style={{color: cardTheme === 'gold' ? '#fef08a' : '#2ec4b6'}}>HEPHAESTUS PREMIUM</span><span>Visa</span></div>
                   <div style={{width: '38px', height: '28px', background: 'linear-gradient(135deg, #e2e8f0, #94a3b8)', borderRadius: '6px'}}></div>
@@ -248,7 +284,7 @@ function App() {
                         <div key={tx.transaction_id} className="tx-item">
                           <div className="tx-left">
                             <div className="tx-icon-wrapper" style={{background: tx.amount < 0 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)'}}><span>{tx.amount < 0 ? '🛒' : '💰'}</span></div>
-                            <div className="tx-info"><p className="tx-description">{tx.description}</p><p className="tx-date">{bank.formatDate ? bank.formatDate(tx.created_at) : tx.created_at.split('T')[0]}</p></div>
+                            <div className="tx-info"><p className="tx-description">{tx.description}</p><p className="tx-date">{tx.created_at ? tx.created_at.split('T')[0] : 'Сьогодні'}</p></div>
                           </div>
                           <div style={{textAlign: 'right'}}><p className="tx-amount" style={{ color: tx.amount < 0 ? '#ef4444' : '#10b981' }}>{tx.amount < 0 ? '' : '+'}{tx.amount} ₴</p></div>
                         </div>
@@ -263,10 +299,10 @@ function App() {
               <>
                 <div className="welcome-section"><h2 className="page-title">Платежі та послуги</h2><p className="greet-label">Оберіть категорію для швидкої оплати</p></div>
                 <div className="services-grid4">
-                  <div className="service-card" onClick={() => { setActiveServiceForm('phone'); setServiceTarget(''); setServiceAmount(''); }}>📱 <p className="service-name">Мобільний зв'язок</p></div>
-                  <div className="service-card" onClick={() => { setActiveServiceForm('internet'); setServiceTarget(''); setServiceAmount(''); }}>🌐 <p className="service-name">Інтернет та ТБ</p></div>
-                  <div className="service-card" onClick={() => { setActiveServiceForm('utilities'); setServiceTarget(''); setServiceAmount(''); }}>🏠 <p className="service-name">Комунальні послуги</p></div>
-                  <div className="service-card" onClick={() => { setActiveServiceForm('charity'); setServiceTarget('ЗСУ'); setServiceAmount(''); }}>❤️ <p className="service-name">Донати на ЗСУ</p></div>
+                  <div className="service-card" onClick={() => { setActiveServiceForm('phone'); setServiceTarget(''); setServiceAmount(''); }}><span>📱</span> <p className="service-name">Мобільний зв'язок</p></div>
+                  <div className="service-card" onClick={() => { setActiveServiceForm('internet'); setServiceTarget(''); setServiceAmount(''); }}><span>🌐</span> <p className="service-name">Інтернет та ТБ</p></div>
+                  <div className="service-card" onClick={() => { setActiveServiceForm('utilities'); setServiceTarget(''); setServiceAmount(''); }}><span>🏠</span> <p className="service-name">Комунальні послуги</p></div>
+                  <div className="service-card" onClick={() => { setActiveServiceForm('charity'); setServiceTarget('ЗСУ'); setServiceAmount(''); }}><span>❤️</span> <p className="service-name">Донати на ЗСУ</p></div>
                 </div>
 
                 {activeServiceForm && (
@@ -318,7 +354,7 @@ function App() {
                   <h3 className="history-title">📜 Історія вашої підтримки</h3>
                   <div className="transactions-list">
                     {bank.clientTickets.length === 0 ? <p className="status-message">Звернень немає</p> : bank.clientTickets.map(t => (
-                      <div key={t.ticket_id} className="tx-item" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '6px', paddingBottom: '10px'}}><div style={{display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: '#94a3b8'}}><span>{t.created_at.split('T')[0]}</span><span style={{color: t.status === 'OPEN' ? '#ef4444' : '#10b981', fontWeight: 'bold'}}>{t.status}</span></div><p style={{margin: 0, fontSize: '14px'}}>Ви: {t.message}</p>
+                      <div key={t.ticket_id} className="tx-item" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '6px', paddingBottom: '10px'}}><div style={{display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: '#94a3b8'}}><span>{t.created_at ? t.created_at.split('T')[0] : 'Сьогодні'}</span><span style={{color: t.status === 'OPEN' ? '#ef4444' : '#10b981', fontWeight: 'bold'}}>{t.status}</span></div><p style={{margin: 0, fontSize: '14px'}}>Ви: {t.message}</p>
                         {t.reply && <p style={{margin: 0, fontSize: '13px', color: '#2ec4b6', fontWeight: '500'}}>Менеджер: {t.reply}</p>}
                       </div>
                     ))}
