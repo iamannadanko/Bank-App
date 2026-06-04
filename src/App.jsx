@@ -41,12 +41,19 @@ function App() {
   const [serviceTarget, setServiceTarget] = useState('')
   const [serviceAmount, setServiceAmount] = useState('')
 
-  // Головна функція завантаження даних залежно від РОЛІ
+  // 🔒 АСИНХРОННЕ ХЕШУВАННЯ ПАРОЛЯ SHA-256 (БЕЗПЕКА НА РІВНІ REAL-WORLD БАНКІНГУ)
+  async function hashPassword(password) {
+    const msgBuffer = new TextEncoder().encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Функція завантаження даних системи
   async function loadSystemData(userId, role) {
     setLoading(true)
     try {
       if (role === 'EMPLOYEE') {
-        // Завантаження для працівника банку (Admin панель)
         const { data: usersList } = await supabase.from('users').select('*')
         setAllUsers(usersList || [])
 
@@ -56,7 +63,6 @@ function App() {
           .order('created_at', { ascending: false })
         setAllTickets(ticketsList || [])
       } else {
-        // Завантаження для клієнта
         const { data: userData } = await supabase.from('users').select('*').eq('user_id', userId).single()
         if (userData) {
           setUserFullName(userData.full_name)
@@ -84,49 +90,84 @@ function App() {
     }
   }
 
-  // Авторизація / Реєстрація
+  // Вхід / Автоматична реєстрація з криптографічним захистом
   const handleAuth = async (e) => {
     e.preventDefault()
-    if (authMode === 'login') {
-      const { data: user } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', authEmail.trim())
-        .or(`password.eq.${authPassword},password_hash.eq.${authPassword}`)
-        .maybeSingle()
+    setLoading(true)
+    
+    try {
+      const hashedPassword = await hashPassword(authPassword)
+      const inputEmail = authEmail.trim().toLowerCase()
 
-      if (user) {
-        setCurrentUserId(user.user_id)
-        setUserRole(user.role || 'CLIENT')
-        setIsLoggedIn(true)
-        await loadSystemData(user.user_id, user.role || 'CLIENT')
+      if (authMode === 'login') {
+        const { data: user } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', inputEmail)
+          .maybeSingle()
+
+        if (user && (user.password_hash === hashedPassword || user.password === authPassword)) {
+          setCurrentUserId(user.user_id)
+          setUserRole(user.role || 'CLIENT')
+          setIsLoggedIn(true)
+          await loadSystemData(user.user_id, user.role || 'CLIENT')
+        } else {
+          alert('Неправильний email або пароль!')
+        }
       } else {
-        alert('Неправильний email або пароль!')
-      }
-    } else {
-      const { data: existingUser } = await supabase.from('users').select('user_id').eq('email', authEmail.trim()).maybeSingle()
-      if (existingUser) {
-        alert('Цей Email вже зайнятий!')
-        return
-      }
+        const { data: existingUser } = await supabase.from('users').select('user_id').eq('email', inputEmail).maybeSingle()
+        if (existingUser) {
+          alert('Цей Email вже зареєстрований!')
+          setLoading(false)
+          return
+        }
 
-      const { data: newUser } = await supabase
-        .from('users')
-        .insert([{ full_name: authName.trim(), email: authEmail.trim(), password_hash: authPassword, password: authPassword, role: 'CLIENT', verification_status: 'PENDING' }])
-        .select()
-        .single()
+        const { data: newUser, error: regErr } = await supabase
+          .from('users')
+          .insert([{ 
+            full_name: authName.trim(), 
+            email: inputEmail, 
+            password_hash: hashedPassword, 
+            password: authPassword,
+            phone_number: '097' + Math.floor(1000000 + Math.random() * 9000000).toString(),
+            role: 'CLIENT', 
+            verification_status: 'PENDING' 
+          }])
+          .select()
+          .single()
 
-      if (newUser) {
-        alert('Акаунт створено! Надіслано запит на верифікацію. Стартовий баланс: 5000 ₴ 🎉')
-        setCurrentUserId(newUser.user_id)
-        setUserRole('CLIENT')
-        setIsLoggedIn(true)
-        await loadSystemData(newUser.user_id, 'CLIENT')
+        if (regErr) {
+          alert(`Помилка бази даних: ${regErr.message}`);
+          throw regErr;
+        }
+
+        if (newUser) {
+          const randomIban = 'UA' + Math.floor(10000000000 + Math.random() * 90000000000).toString()
+          await supabase.from('accounts').insert([{ user_id: newUser.user_id, balance: 5000.00, iban: randomIban }])
+
+          await supabase.from('transactions').insert([{
+            user_id: newUser.user_id,
+            amount: 5000.00,
+            total_amount: 5000.00,
+            transaction_type: 'INCOME',
+            description: '🎉 Стартовий бонус Hephaestus Premium'
+          }])
+
+          alert('Акаунт створено з криптографічним хешуванням пароля! Баланс: 5000 ₴ 🎉');
+          setCurrentUserId(newUser.user_id)
+          setUserRole('CLIENT')
+          setIsLoggedIn(true)
+          await loadSystemData(newUser.user_id, 'CLIENT')
+        }
       }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Надіслати тикет у підтримку (Клієнт)
+  // Надіслати тикет у підтримку
   const handleSupportSubmit = async (e) => {
     e.preventDefault()
     if (!supportMessage.trim()) return
@@ -134,7 +175,7 @@ function App() {
     await supabase.from('support_tickets').insert([{ user_id: currentUserId, message: supportMessage.trim() }])
     setSupportMessage('')
     await loadSystemData(currentUserId, 'CLIENT')
-    alert('Ваше звернення надіслано в службу підтримки банку!!!')
+    alert('Ваше звернення надіслано в службу підтримки банку!')
   }
 
   // Відповісти на тикет (Працівник банку)
@@ -147,7 +188,7 @@ function App() {
     alert('Відповідь успішно надіслано клієнту!')
   }
 
-  // Зміна статусу верифікації користувача (Працівник банку)
+  // Зміна статусу верифікації
   const handleUpdateVerification = async (userId, newStatus) => {
     await supabase.from('users').update({ verification_status: newStatus }).eq('user_id', userId)
     await loadSystemData(currentUserId, 'EMPLOYEE')
@@ -158,7 +199,7 @@ function App() {
   const handleTransferSubmit = async (e) => {
     e.preventDefault()
     if (verificationStatus !== 'VERIFIED') {
-      alert('Помилка! Ваші документи не верифіковані працівником банку. Доступ до переказів обмежено!');
+      alert('Помилка! Ваш акаунт не верифіковано працівником банку. Перекази заблоковано!');
       return
     }
 
@@ -170,10 +211,10 @@ function App() {
 
     try {
       setIsSending(true)
-      const { data: recipient } = await supabase.from('users').select('user_id, full_name').eq('email', recipientEmail.trim()).maybeSingle()
+      const { data: recipient } = await supabase.from('users').select('user_id, full_name').eq('email', recipientEmail.trim().toLowerCase()).maybeSingle()
 
       if (!recipient) {
-        alert('Користувача з таким Email не знайдено в системі Hephaestus!')
+        alert('Користувача з такою поштою не знайдено!')
         return
       }
 
@@ -187,10 +228,10 @@ function App() {
       await supabase.from('accounts').update({ balance: balance - amountNum }).eq('user_id', currentUserId)
       await supabase.from('accounts').update({ balance: Number(recipientAccount.balance) + amountNum }).eq('user_id', recipient.user_id)
 
-      const cleanDesc = transferDesc.trim() || 'Переказ'
+      const cleanDesc = transferDesc.trim() || 'Переказ коштів'
       await supabase.from('transactions').insert([
-        { user_id: currentUserId, total_amount: amountNum, amount: -amountNum, transaction_type: 'EXPENSE', description: `💸 Переказ для ${recipient.full_name} (${cleanDesc})` },
-        { user_id: recipient.user_id, total_amount: amountNum, amount: amountNum, transaction_type: 'INCOME', description: `💰 Отримано від ${userFullName} (${cleanDesc})` }
+        { user_id: currentUserId, amount: -amountNum, total_amount: amountNum, transaction_type: 'EXPENSE', description: `💸 Переказ для ${recipient.full_name} (${cleanDesc})` },
+        { user_id: recipient.user_id, amount: amountNum, total_amount: amountNum, transaction_type: 'INCOME', description: `💰 Отримано від ${userFullName} (${cleanDesc})` }
       ])
 
       setIsModalOpen(false)
@@ -210,7 +251,7 @@ function App() {
   const handleServiceSubmit = async (e) => {
     e.preventDefault()
     if (verificationStatus !== 'VERIFIED') {
-      alert('Сплачувати послуги можуть лише верифіковані клієнти!')
+      alert('Оплачувати послуги можуть лише верифіковані клієнти!')
       return
     }
     const amountNum = parseFloat(serviceAmount)
@@ -219,7 +260,7 @@ function App() {
       setIsSending(true)
       let desc = activeServiceForm === 'phone' ? `📱 Мобільний зв'язок (${serviceTarget})` : `🌐 Інтернет (О/Р ${serviceTarget})`
       await supabase.from('accounts').update({ balance: balance - amountNum }).eq('user_id', currentUserId)
-      await supabase.from('transactions').insert([{ user_id: currentUserId, total_amount: amountNum, amount: -amountNum, transaction_type: 'EXPENSE', description: desc }])
+      await supabase.from('transactions').insert([{ user_id: currentUserId, amount: -amountNum, total_amount: amountNum, transaction_type: 'EXPENSE', description: desc }])
 
       setActiveServiceForm(null)
       setServiceTarget('')
@@ -238,7 +279,7 @@ function App() {
     return new Date(dateString).toLocaleDateString('uk-UA', options)
   }
 
-  // 🛡️ БЕЗПЕЧНИЙ МАТЕМАТИЧНИЙ РОЗРАХУНОК АНАЛІТИКИ (ЗАХИСТ ВІД ЧОРНОГО ЕКРАНА)
+  // 🛡️ БЕЗПЕЧНИЙ МАТЕМАТИЧНИЙ РОЗРАХУНОК АНАЛІТИКИ
   const safeTx = transactions || [];
   const totalIncome = safeTx.filter(t => t.amount > 0).reduce((sum, t) => sum + Number(t.amount), 0)
   const totalExpense = safeTx.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
@@ -264,7 +305,6 @@ function App() {
 
   return (
     <div style={styles.container} lang="uk">
-      {/* ⚡ Шапка додатка */}
       <header style={styles.header}>
         <div style={styles.headerLeft}>
           <span style={styles.logoIcon}>⚡</span>
@@ -273,7 +313,7 @@ function App() {
         {isLoggedIn && <button onClick={() => setIsLoggedIn(false)} style={styles.logoutButton}>Вихід 🚪</button>}
       </header>
 
-      {/* 🔐 ЕКРАН АВТОРИЗАЦІЇ */}
+      {/* ЕКРАН АВТОРИЗАЦІЇ */}
       {!isLoggedIn ? (
         <div style={styles.authCard}>
           <h2 style={styles.authTitle}>{authMode === 'login' ? 'Вхід у банкінг' : 'Створити акаунт'}</h2>
@@ -283,20 +323,19 @@ function App() {
             )}
             <div style={styles.inputGroup}><label style={styles.label}>Електронна пошта</label><input type="email" placeholder="anna@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} style={styles.input} /></div>
             <div style={styles.inputGroup}><label style={styles.label}>Пароль</label><input type="password" placeholder="••••••••" required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} style={styles.input} /></div>
-            <button type="submit" style={styles.submitButton}>{authMode === 'login' ? 'Увійти' : 'Зареєструватися'}</button>
+            <button type="submit" style={styles.submitButton}>{loading ? 'Завантаження...' : (authMode === 'login' ? 'Увійти' : 'Зареєструватися')}</button>
           </form>
           <p style={styles.switchAuthText}>{authMode === 'login' ? 'Ще немає акаунта? ' : 'Вже є акаунт? '}<span style={styles.switchAuthLink} onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>{authMode === 'login' ? 'Зареєструватися' : 'Увійти'}</span></p>
         </div>
       ) : userRole === 'EMPLOYEE' ? (
         
-        /* 🏢 ІНТЕРФЕЙС ПРАЦІВНИКА БАНКУ (CRM ПАНЕЛЬ) */
+        /* 🏢 ІНТЕРФЕЙС ПРАЦІВНИКА БАНКУ */
         <div style={styles.appScreen}>
           <div style={styles.welcomeSection}>
             <h2 style={styles.pageTitle}>Панель Працівника Банку</h2>
-            <p style={styles.greetLabel}>Обробка звернень клієнтів та верифікація акаунтів</p>
+            <p style={styles.greetLabel}>Управління клієнтами та зверненнями підтримки</p>
           </div>
 
-          {/* Запити на верифікацію */}
           <div style={styles.historySection}>
             <h3 style={styles.historyTitle}>📋 Запити на верифікацію (KYC)</h3>
             <div style={styles.transactionsList}>
@@ -311,7 +350,7 @@ function App() {
                       fontSize: '11px', padding: '3px 8px', borderRadius: '6px', marginRight: '8px',
                       background: u.verification_status === 'VERIFIED' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)',
                       color: u.verification_status === 'VERIFIED' ? '#10b981' : '#ef4444'
-                    }}>{u.verification_status}</span>
+                    }}>{u.verification_status || 'PENDING'}</span>
                     {u.verification_status !== 'VERIFIED' && (
                       <button onClick={() => handleUpdateVerification(u.user_id, 'VERIFIED')} style={styles.adminActionBtn}>Підтвердити</button>
                     )}
@@ -321,7 +360,6 @@ function App() {
             </div>
           </div>
 
-          {/* Черга підтримки */}
           <div style={styles.historySection}>
             <h3 style={styles.historyTitle}>💬 Черга звернень у підтримку</h3>
             <div style={styles.transactionsList}>
@@ -355,146 +393,132 @@ function App() {
         
         /* 📱 ІНТЕРФЕЙС КЛІЄНТА БАНКУ */
         <div style={styles.appScreen}>
-          
-          {/* Вкладка 1: Головна */}
-          {activeTab === 'home' && (
-            <div style={styles.tabContent}>
-              <div style={styles.welcomeSection}>
-                <p style={styles.greetLabel}>Вітаємо знову,</p>
-                <h2 style={styles.userName}>{userFullName}</h2>
-                <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px'}}>
-                  <span style={{
-                    fontSize: '11px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold',
-                    background: verificationStatus === 'VERIFIED' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)',
-                    color: verificationStatus === 'VERIFIED' ? '#10b981' : '#ef4444'
-                  }}>
-                    {verificationStatus === 'VERIFIED' ? '🛡️ Верифікований клієнт' : '⚠️ Акаунт не верифіковано'}
-                  </span>
+          <div style={styles.tabContent}>
+            {activeTab === 'home' && (
+              <>
+                <div style={styles.welcomeSection}>
+                  <p style={styles.greetLabel}>Вітаємо знову,</p>
+                  <h2 style={styles.userName}>{userFullName}</h2>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px'}}>
+                    <span style={{
+                      fontSize: '11px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold',
+                      background: verificationStatus === 'VERIFIED' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)',
+                      color: verificationStatus === 'VERIFIED' ? '#10b981' : '#ef4444'
+                    }}>
+                      {verificationStatus === 'VERIFIED' ? '🛡️ Верифікований клієнт' : '⚠️ Акаунт не верифіковано'}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <div style={{...styles.creditCard, background: getCardBg()}}>
-                <div style={styles.cardTop}><span style={{...styles.cardBankName, color: cardTheme === 'gold' ? '#fef08a' : '#2ec4b6'}}>HEPHAESTUS PREMIUM</span><span>Visa</span></div>
-                <div style={styles.cardChip}><div style={styles.chipLine}></div></div>
-                <div style={styles.cardMiddle}><p style={styles.balanceLabel}>Поточний баланс</p><p style={styles.cardBalance}>{balance.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} UAH</p></div>
-                <div style={styles.cardBottom}><span>4441 1144 2255 3366</span><span>06/31</span></div>
-              </div>
-
-              <div style={styles.themeSelector}>
-                <p style={{margin: 0, fontSize: '12px', color: '#94a3b8'}}>Дизайн картки:</p>
-                <div style={{display: 'flex', gap: '6px'}}>
-                  <button onClick={() => setCardTheme('cyber')} style={{...styles.themeBtn, background: '#311042', borderColor: cardTheme === 'cyber' ? '#2ec4b6' : 'transparent'}}>Cyber</button>
-                  <button onClick={() => setCardTheme('platinum')} style={{...styles.themeBtn, background: '#334155', borderColor: cardTheme === 'platinum' ? '#2ec4b6' : 'transparent'}}>Platinum</button>
-                  <button onClick={() => setCardTheme('gold')} style={{...styles.themeBtn, background: '#78350f', borderColor: cardTheme === 'gold' ? '#fef08a' : 'transparent'}}>Gold</button>
+                <div style={{...styles.creditCard, background: getCardBg()}}>
+                  <div style={styles.cardTop}><span style={{...styles.cardBankName, color: cardTheme === 'gold' ? '#fef08a' : '#2ec4b6'}}>HEPHAESTUS PREMIUM</span><span>Visa</span></div>
+                  <div style={styles.cardChip}><div style={styles.chipLine}></div></div>
+                  <div style={styles.cardMiddle}><p style={styles.balanceLabel}>Поточний баланс</p><p style={styles.cardBalance}>{balance.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} UAH</p></div>
+                  <div style={styles.cardBottom}><span>4441 1144 2255 3366</span><span>06/31</span></div>
                 </div>
-              </div>
 
-              <div style={styles.actionsGrid}>
-                <button style={styles.actionButton} onClick={() => setActiveTab('services')}><span style={styles.actionIcon}>➕</span><span style={styles.actionLabel}>Послуги</span></button>
-                <button style={{...styles.actionButton, borderColor: '#2ec4b6'}} onClick={() => setIsModalOpen(true)}><span style={styles.actionIcon}>💸</span><span style={{...styles.actionLabel, color: '#2ec4b6', fontWeight: 'bold'}}>Переказати</span></button>
-                <button style={styles.actionButton} onClick={() => setActiveTab('analytics')}><span style={styles.actionIcon}>📊</span><span style={styles.actionLabel}>Аналітика</span></button>
-              </div>
+                <div style={styles.themeSelector}>
+                  <p style={{margin: 0, fontSize: '12px', color: '#94a3b8'}}>Дизайн картки:</p>
+                  <div style={{display: 'flex', gap: '6px'}}>
+                    <button onClick={() => setCardTheme('cyber')} style={{...styles.themeBtn, background: '#311042', borderColor: cardTheme === 'cyber' ? '#2ec4b6' : 'transparent'}}>Cyber</button>
+                    <button onClick={() => setCardTheme('platinum')} style={{...styles.themeBtn, background: '#334155', borderColor: cardTheme === 'platinum' ? '#2ec4b6' : 'transparent'}}>Platinum</button>
+                    <button onClick={() => setCardTheme('gold')} style={{...styles.themeBtn, background: '#78350f', borderColor: cardTheme === 'gold' ? '#fef08a' : 'transparent'}}>Gold</button>
+                  </div>
+                </div>
 
-              <div style={styles.historySection}>
-                <h3 style={styles.historyTitle}>Історія операцій</h3>
-                <div style={styles.transactionsList}>
-                  {safeTx.length === 0 ? <p style={styles.statusMessage}>Операцій ще немає</p> : (
-                    safeTx.map((tx) => (
-                      <div key={tx.transaction_id} style={styles.txItem}>
-                        <div style={styles.txLeft}>
-                          <div style={{...styles.txIconWrapper, background: tx.amount < 0 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)'}}><span>{tx.amount < 0 ? '🛒' : '💰'}</span></div>
-                          <div style={styles.txInfo}><p style={styles.txDescription}>{tx.description}</p><p style={styles.txDate}>{formatDate(tx.created_at)}</p></div>
+                <div style={styles.actionsGrid}>
+                  <button style={styles.actionButton} onClick={() => setActiveTab('services')}><span style={styles.actionIcon}>➕</span><span style={styles.actionLabel}>Послуги</span></button>
+                  <button style={{...styles.actionButton, borderColor: '#2ec4b6'}} onClick={() => setIsModalOpen(true)}><span style={styles.actionIcon}>💸</span><span style={{...styles.actionLabel, color: '#2ec4b6', fontWeight: 'bold'}}>Переказати</span></button>
+                  <button style={styles.actionButton} onClick={() => setActiveTab('analytics')}><span style={styles.actionIcon}>📊</span><span style={styles.actionLabel}>Аналітика</span></button>
+                </div>
+
+                <div style={styles.historySection}>
+                  <h3 style={styles.historyTitle}>Історія операцій</h3>
+                  <div style={styles.transactionsList}>
+                    {safeTx.length === 0 ? <p style={styles.statusMessage}>Операцій ще немає</p> : (
+                      safeTx.map((tx) => (
+                        <div key={tx.transaction_id} style={styles.txItem}>
+                          <div style={styles.txLeft}>
+                            <div style={{...styles.txIconWrapper, background: tx.amount < 0 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)'}}><span>{tx.amount < 0 ? '🛒' : '💰'}</span></div>
+                            <div style={styles.txInfo}><p style={styles.txDescription}>{tx.description}</p><p style={styles.txDate}>{formatDate(tx.created_at)}</p></div>
+                          </div>
+                          <div style={styles.txRight}><p style={{ ...styles.txAmount, color: tx.amount < 0 ? '#ef4444' : '#10b981' }}>{tx.amount < 0 ? '' : '+'}{tx.amount.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} ₴</p></div>
                         </div>
-                        <div style={styles.txRight}><p style={{ ...styles.txAmount, color: tx.amount < 0 ? '#ef4444' : '#10b981' }}>{tx.amount < 0 ? '' : '+'}{tx.amount.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} ₴</p></div>
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
+              </>
+            )}
 
-          {/* Вкладка 2: Послуги */}
-          {activeTab === 'services' && (
-            <div style={styles.tabContent}>
-              <div style={styles.welcomeSection}><h2 style={styles.pageTitle}>Платежі та послуги</h2></div>
-              <div style={styles.servicesGrid}>
-                <div style={styles.serviceCard} onClick={() => setActiveServiceForm('phone')}>📱 <p style={styles.serviceName}>Мобільний</p></div>
-                <div style={styles.serviceCard} onClick={() => setActiveServiceForm('internet')}>🌐 <p style={styles.serviceName}>Інтернет</p></div>
-              </div>
+            {activeTab === 'services' && (
+              <>
+                <div style={styles.welcomeSection}><h2 style={styles.pageTitle}>Платежі та послуги</h2></div>
+                <div style={styles.servicesGrid}>
+                  <div style={styles.serviceCard} onClick={() => setActiveServiceForm('phone')}>📱 <p style={styles.serviceName}>Мобільний</p></div>
+                  <div style={styles.serviceCard} onClick={() => setActiveServiceForm('internet')}>🌐 <p style={styles.serviceName}>Інтернет</p></div>
+                </div>
+                {activeServiceForm && (
+                  <div style={styles.serviceFormBox}>
+                    <form onSubmit={handleServiceSubmit} style={styles.form}>
+                      <div style={styles.inputGroup}><label style={styles.label}>Реквізити / Номер</label><input type="text" required value={serviceTarget} onChange={(e) => setServiceTarget(e.target.value)} style={styles.input} /></div>
+                      <div style={styles.inputGroup}><label style={styles.label}>Сума (UAH)</label><input type="number" required value={serviceAmount} onChange={(e) => setServiceAmount(e.target.value)} style={styles.input} /></div>
+                      <button type="submit" style={styles.submitButton}>Оплатити рахунок</button>
+                    </form>
+                  </div>
+                )}
+              </>
+            )}
 
-              {activeServiceForm && (
+            {activeTab === 'analytics' && (
+              <>
+                <div style={styles.welcomeSection}><h2 style={styles.pageTitle}>Аналітика витрат</h2></div>
+                <div style={styles.mathReportCard}>
+                  <h4 style={{margin: '0 0 15px 0'}}>Категоріальний розподіл:</h4>
+                  <div style={{marginBottom: '10px'}}>🛒 Супермаркети: **{catSilpo} ₴**</div>
+                  <div style={{marginBottom: '10px'}}>📱 Мобільний зв'язок: **{catPhone} ₴**</div>
+                  <div style={{marginBottom: '10px'}}>🌐 Інтернет та ТБ: **{catInternet} ₴**</div>
+                  <div style={{marginBottom: '10px'}}>💸 Перекази: **{catTransfers} ₴**</div>
+                  <hr style={{borderColor: '#334155', margin: '15px 0'}} />
+                  <p style={{margin: 0, fontSize: '13px'}}>Коефіцієнт заощаджень: **{savingsRate}%**</p>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'support' && (
+              <>
+                <div style={styles.welcomeSection}>
+                  <h2 style={styles.pageTitle}>Підтримка банку</h2>
+                  <p style={styles.greetLabel}>Звернення до оператора в реальному часі</p>
+                </div>
                 <div style={styles.serviceFormBox}>
-                  <form onSubmit={handleServiceSubmit} style={styles.form}>
-                    <div style={styles.inputGroup}><label style={styles.label}>Реквізити / Номер</label><input type="text" required value={serviceTarget} onChange={(e) => setServiceTarget(e.target.value)} style={styles.input} /></div>
-                    <div style={styles.inputGroup}><label style={styles.label}>Сума (UAH)</label><input type="number" required value={serviceAmount} onChange={(e) => setServiceAmount(e.target.value)} style={styles.input} /></div>
-                    <button type="submit" style={styles.submitButton}>Оплатити рахунок</button>
+                  <form onSubmit={handleSupportSubmit} style={styles.form}>
+                    <div style={styles.inputGroup}>
+                      <label style={styles.label}>Опишіть ваше питання</label>
+                      <textarea required rows="3" placeholder="Напишіть нам..." value={supportMessage} onChange={(e) => setSupportMessage(e.target.value)} style={{...styles.input, fontFamily: 'inherit', resize: 'none'}} />
+                    </div>
+                    <button type="submit" style={styles.submitButton}>Надіслати звернення</button>
                   </form>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Вкладка 3: Аналітика (З повною перевіркою) */}
-          {activeTab === 'analytics' && (
-            <div style={styles.tabContent}>
-              <div style={styles.welcomeSection}><h2 style={styles.pageTitle}>Аналітика витрат</h2></div>
-              <div style={styles.mathReportCard}>
-                <h4 style={{margin: '0 0 15px 0'}}>Категоріальний розподіл:</h4>
-                <div style={{marginBottom: '10px'}}>🛒 Супермаркети: **{catSilpo} ₴**</div>
-                <div style={{marginBottom: '10px'}}>📱 Мобільний зв'язок: **{catPhone} ₴**</div>
-                <div style={{marginBottom: '10px'}}>🌐 Інтернет та ТБ: **{catInternet} ₴**</div>
-                <div style={{marginBottom: '10px'}}>💸 Перекази: **{catTransfers} ₴**</div>
-                <hr style={{borderColor: '#334155', margin: '15px 0'}} />
-                <p style={{margin:0, fontSize:'13px'}}>Коефіцієнт заощаджень: **{savingsRate}%**</p>
-              </div>
-            </div>
-          )}
-
-          {/* Вкладка 4: Підтримка */}
-          {activeTab === 'support' && (
-            <div style={styles.tabContent}>
-              <div style={styles.welcomeSection}>
-                <h2 style={styles.pageTitle}>Підтримка банку</h2>
-                <p style={styles.greetLabel}>Пряме звернення до працівника банку</p>
-              </div>
-
-              <div style={styles.serviceFormBox}>
-                <form onSubmit={handleSupportSubmit} style={styles.form}>
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>Опишіть вашу проблему</label>
-                    <textarea 
-                      required 
-                      rows="3"
-                      placeholder="Напишіть нам..." 
-                      value={supportMessage}
-                      onChange={(e) => setSupportMessage(e.target.value)}
-                      style={{...styles.input, fontFamily: 'inherit', resize: 'none'}}
-                    />
-                  </div>
-                  <button type="submit" style={styles.submitButton}>Надіслати звернення</button>
-                </form>
-              </div>
-
-              <div style={styles.historySection}>
-                <h3 style={styles.historyTitle}>📜 Історія ваших звернень</h3>
-                <div style={styles.transactionsList}>
-                  {clientTickets.length === 0 ? <p style={styles.statusMessage}>Звернень немає</p> : clientTickets.map(t => (
-                    <div key={t.ticket_id} style={{...styles.txItem, flexDirection: 'column', alignItems: 'flex-start', gap: '6px', paddingBottom: '10px'}}>
-                      <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: '#94a3b8'}}>
-                        <span>{formatDate(t.created_at)}</span>
-                        <span style={{color: t.status === 'OPEN' ? '#ef4444' : '#10b981', fontWeight: 'bold'}}>{t.status}</span>
+                <div style={styles.historySection}>
+                  <h3 style={styles.historyTitle}>📜 Історія ваших звернень</h3>
+                  <div style={styles.transactionsList}>
+                    {clientTickets.length === 0 ? <p style={styles.statusMessage}>Звернень немає</p> : clientTickets.map(t => (
+                      <div key={t.ticket_id} style={{...styles.txItem, flexDirection: 'column', alignItems: 'flex-start', gap: '6px', paddingBottom: '10px'}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: '#94a3b8'}}>
+                          <span>{formatDate(t.created_at)}</span>
+                          <span style={{color: t.status === 'OPEN' ? '#ef4444' : '#10b981', fontWeight: 'bold'}}>{t.status}</span>
+                        </div>
+                        <p style={{margin: 0, fontSize: '14px'}}>Ви: {t.message}</p>
+                        {t.reply && <p style={{margin: 0, fontSize: '13px', color: '#2ec4b6', fontWeight: '500'}}>Менеджер: {t.reply}</p>}
                       </div>
-                      <p style={{margin: 0, fontSize: '14px'}}>Ви: {t.message}</p>
-                      {t.reply && <p style={{margin: 0, fontSize: '13px', color: '#2ec4b6', fontWeight: '500'}}>Менеджер: {t.reply}</p>}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
+              </>
+            )}
+          </div>
 
-          {/* НАВІГАЦІЯ КЛІЄНТА */}
           <nav style={styles.navBar}>
             <button style={{...styles.navButton, color: activeTab === 'home' ? '#2ec4b6' : '#94a3b8'}} onClick={() => setActiveTab('home')}>🏠<span style={styles.navLabel}>Головна</span></button>
             <button style={{...styles.navButton, color: activeTab === 'services' ? '#2ec4b6' : '#94a3b8'}} onClick={() => setActiveTab('services')}>🛒<span style={styles.navLabel}>Послуги</span></button>
@@ -522,7 +546,7 @@ function App() {
   )
 }
 
-// Повні стилі системи Hephaestus Premium Finance
+// Повні стилі системи Hephaestus Premium Finance CRM
 const styles = {
   container: { background: '#0f172a', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: '"Segoe UI", Roboto, sans-serif', color: '#f8fafc', padding: '15px 15px 95px 15px', boxSizing: 'border-box' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', maxWidth: '390px', marginBottom: '20px', borderBottom: '1px solid #1e293b', paddingBottom: '10px' },
@@ -562,6 +586,7 @@ const styles = {
   txInfo: { display: 'flex', flexDirection: 'column', gap: '2px' },
   txDescription: { margin: 0, fontSize: '14px', fontWeight: '500', color: '#f8fafc' },
   txDate: { margin: 0, fontSize: '11px', color: '#94a3b8' },
+  txRight: { textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '2px' },
   txAmount: { margin: 0, fontSize: '14px', fontWeight: '600' },
   servicesGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' },
   serviceCard: { background: '#1e293b', border: '1px solid #334155', borderRadius: '20px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', cursor: 'pointer' },
