@@ -21,6 +21,9 @@ export function useBankData() {
   const [transactions, setTransactions] = useState([])
   const [clientTickets, setClientTickets] = useState([])
 
+  // 🔥 МАСИВ ДЛЯ ДИНАМІЧНОГО ЗБЕРЕЖЕННЯ КАРТОК КОРИСТУВАЧА
+  const [userCards, setUserCards] = useState([])
+
   const [allUsers, setAllUsers] = useState([])
   const [allTickets, setAllTickets] = useState([])
   const [loading, setLoading] = useState(false)
@@ -76,6 +79,15 @@ export function useBankData() {
         let { data: accountData } = await supabase.from('accounts').select('balance').eq('user_id', userId).maybeSingle()
         setBalance(accountData ? Number(accountData.balance) : 5000.00)
 
+        // 🗺️ ЗАВАНТАЖЕННЯ КАРТОК КОРИСТУВАЧА З ТАБЛИЦІ CARDS (ЯКЩО НЕМАЄ, СТВОРЮЄМО ДЕФОЛТНУ)
+        let { data: cardsList } = await supabase.from('cards').select('*').eq('user_id', userId)
+        if (!cardsList || cardsList.length === 0) {
+          const defaultCard = { user_id: userId, card_number: '4441 1144 2255 3366', card_type: 'gold', expiry_date: '06/31' }
+          await supabase.from('cards').insert([defaultCard])
+          cardsList = [defaultCard]
+        }
+        setUserCards(cardsList)
+
         const { data: txList } = await supabase.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false })
         setTransactions(txList || [])
         calculateAnalytics(txList)
@@ -90,7 +102,46 @@ export function useBankData() {
     }
   }
 
-  // 🔄 АВТОМАТИЧНИЙ ЗАПУСК ПРИ ОНОВЛЕННІ СТОРІНКИ (ПЕРЕВІРКА СЕСІЇ)
+  // 🔥 ФУНКЦІЯ АВТОМАТИЧНОГО ВИПУСКУ НОВОЇ КАРТИ В SUPABASE
+  const handleCreateNewCard = async (themeName) => {
+    try {
+      setLoading(true)
+      const num1 = '4441'
+      const num2 = Math.floor(1000 + Math.random() * 9000).toString()
+      const num3 = Math.floor(1000 + Math.random() * 9000).toString()
+      const num4 = Math.floor(1000 + Math.random() * 9000).toString()
+      const generatedNumber = `${num1} ${num2} ${num3} ${num4}`
+
+      const newCardObj = {
+        user_id: currentUserId,
+        card_number: generatedNumber,
+        card_type: themeName,
+        expiry_date: '09/33'
+      }
+
+      const { error } = await supabase.from('cards').insert([newCardObj])
+      if (error) throw error
+
+      // Записуємо випуск карти в історію операцій
+      await supabase.from('transactions').insert([{
+        user_id: currentUserId,
+        amount: 0,
+        total_amount: 0,
+        transaction_type: 'INCOME',
+        description: `🏛️ Кузня Гефеста: Випущено нову карту типу ${themeName.toUpperCase()}`
+      }])
+
+      alert(`Вітаємо! Картку серії ${themeName.toUpperCase()} успішно викувано в базі даних! 🔨`)
+      await loadSystemData(currentUserId, userRole)
+    } catch (err) {
+      console.error(err)
+      alert('Помилка при створенні картки')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 🔄 АВТОМАТИЧНИЙ ЗАПУСК ПРИ ОНОВЛЕННІ СТОРІНКИ (П ПЕРЕВІРКА СЕСІЇ)
   useEffect(() => {
     if (isLoggedIn && currentUserId) {
       loadSystemData(currentUserId, userRole)
@@ -118,10 +169,10 @@ export function useBankData() {
     setUserRole('CLIENT')
     setIsLoggedIn(false)
     
-    // Очищаємо дані інтерфейсу
     setUserFullName('')
     setBalance(0)
     setTransactions([])
+    setUserCards([])
   }
 
   return {
@@ -129,6 +180,7 @@ export function useBankData() {
     userRole, setUserRole, verificationStatus, setVerificationStatus, userFullName,
     balance, setBalance, transactions, setTransactions, clientTickets, setClientTickets,
     allUsers, allTickets, loading, setLoading, hashPassword, loadSystemData,
-    catSilpo, catPhone, catInternet, catTransfers, savingsRate
+    catSilpo, catPhone, catInternet, catTransfers, savingsRate,
+    userCards, handleCreateNewCard
   }
 }

@@ -1,17 +1,17 @@
-/* Головний контейнер */
+/* 🏛️ АНТИЧНА ПАЛІТРА КУЗНІ ГЕФЕСТА: ЗОЛОТО, БРОНЗА ТА МАРМУР */
 .bank-container {
-  background: #0f172a;
+  background: #111418; /* Темний мармурово-вугільний фон */
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   font-family: "Segoe UI", Roboto, sans-serif;
-  color: #f8fafc;
-  padding: 20px 15px 120px 15px; /* ПОЛАГОДЖЕНО: Тепер нижня панель нічого не перекриває! */
+  color: #f1f5f9;
+  padding: 20px 15px 120px 15px;
   box-sizing: border-box;
 }
 
-/* Шапка */
+/* Шапка додатку */
 .bank-header {
   display: flex;
   align-items: center;
@@ -19,47 +19,47 @@
   width: 100%;
   max-width: 390px;
   margin-bottom: 20px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid #c5a059; /* Золотисто-бронзова лінія */
   padding-bottom: 10px;
 }
 .header-left { display: flex; align-items: center; gap: 8px; }
-.logo-icon { font-size: 18px; background: linear-gradient(135deg, #2ec4b6, #06b6d4); padding: 4px 8px; border-radius: 8px; }
-.logo-text { font-size: 17px; font-weight: 800; background: linear-gradient(to right, #2ec4b6, #a5f3fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
+.logo-icon { font-size: 18px; background: linear-gradient(135deg, #b45309, #d4af37); padding: 4px 8px; border-radius: 8px; box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); }
+.logo-text { font-size: 17px; font-weight: 800; background: linear-gradient(to right, #e5c158, #b45309); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; letter-spacing: 0.5px; }
 
 .logout-button {
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: #231b12;
+  border: 1px solid #78350f;
   border-radius: 10px;
   padding: 6px 12px;
-  color: #ef4444;
+  color: #fca5a5;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.25s ease;
 }
 .logout-button:hover {
-  background: #ef4444;
+  background: #78350f;
   color: #fff;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 12px rgba(120, 53, 15, 0.4);
 }
 
 /* Картка авторизації */
 .auth-card { 
-  background: #1e293b; 
-  border: 1px solid #334155; 
+  background: #1a1d21; 
+  border: 1px solid #4a3b2c; /* Бронзова рамка */
   border-radius: 24px; 
   padding: 28px; 
   width: 100%; 
   max-width: 360px; 
   text-align: center; 
-  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4); 
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); 
   margin-top: 30px;
   animation: fadeInUp 0.4s ease-out;
 }
-.auth-title { margin: 0 0 16px 0; font-size: 22px; font-weight: 700; color: #fff; }
+.auth-title { margin: 0 0 16px 0; font-size: 22px; font-weight: 700; color: #d4af37; }
 .switch-auth-text { margin: 15px 0 0 0; font-size: 13px; color: #94a3b8; display: flex; flex-direction: column; gap: 8px; align-items: center; }
-.switch-auth-link { color: #2ec4b6; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.switch-auth-link { color: #d4af37; font-weight: 600; cursor: pointer; text-decoration: underline; }
 
 /* Екрани додатку */
 .app-screen { 
@@ -72,9 +72,9 @@
 }
 .tab-content { display: flex; flex-direction: column; gap: 20px; width: 100%; }
 .welcome-section { text-align: left; padding-left: 5px; }
-.greet-label { color: #94a3b8; margin: 0; font-size: 13px; }
+.greet-label { color: #a1a1aa; margin: 0; font-size: 13px; }
 .user-name { margin: 4px 0 0 0; font-size: 22px; font-weight: 600; color: #fff; }
-.page-title { margin: 0 0 4px 0; font-size: 22px; font-weight: 700; color: #fff; }
+.page-title { margin: 0 0 4px 0; font-size: 22px; font-weight: 700; color: #d4af37; }
 
 /* Пластикова картка */
 .credit-card { 
@@ -84,26 +84,26 @@
   display: flex; 
   flex-direction: column; 
   justify-content: space-between; 
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3); 
-  border: 1px solid rgba(255, 255, 255, 0.05); 
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4); 
+  border: 1px solid rgba(212, 175, 55, 0.15); 
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
 }
 .credit-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 22px 35px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 22px 35px rgba(212, 175, 55, 0.15);
 }
 .card-top { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: 2px; }
 .card-middle { display: flex; flex-direction: column; align-items: flex-start; }
-.balance-label { margin: 0; font-size: 11px; color: #94a3b8; }
-.card-balance { margin: 3px 0 0 0; font-size: 26px; font-weight: 700; color: #10b981; }
+.balance-label { margin: 0; font-size: 11px; color: #cbd5e1; }
+.card-balance { margin: 3px 0 0 0; font-size: 26px; font-weight: 700; color: #e5c158; text-shadow: 0 2px 4px rgba(0,0,0,0.4); }
 .card-bottom { display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-family: "Courier New", monospace; }
 
-/* Вибір дизайну */
-.theme-selector { display: flex; align-items: center; justify-content: space-between; background: #1e293b; border-radius: 12px; padding: 8px 12px; border: 1px solid #334155; }
+/* Вибір дизайну карти */
+.theme-selector { display: flex; align-items: center; justify-content: space-between; background: #1a1d21; border-radius: 12px; padding: 8px 12px; border: 1px solid #4a3b2c; }
 .theme-btn { border: 1px solid transparent; padding: 4px 8px; border-radius: 6px; color: #fff; font-size: 11px; cursor: pointer; transition: all 0.2s; }
 .theme-btn:hover { transform: scale(1.05); opacity: 0.9; }
 
-/* 🔥 ШВИДКІ ДІЇ — АДАПТИВНА МОБІЛЬНА СІТКА 2х2 ЩОБ НІЧОГО НЕ З'ЇЖДЖАЛО */
+/* Швидкі дії — Сітка 2х2 для телефонів */
 .actions-grid { 
   display: grid; 
   grid-template-columns: 1fr 1fr; 
@@ -111,8 +111,8 @@
   width: 100%;
 }
 .action-button { 
-  background: #1e293b; 
-  border: 1px solid #334155; 
+  background: #1a1d21; 
+  border: 1px solid #4a3b2c; 
   border-radius: 16px; 
   padding: 14px 10px; 
   display: flex; 
@@ -123,26 +123,26 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
 }
 .action-button:hover { 
-  background: #24324d; 
+  background: #2a2218; 
   transform: translateY(-3px); 
-  border-color: #2ec4b6;
-  box-shadow: 0 6px 15px rgba(46, 196, 182, 0.15);
+  border-color: #d4af37;
+  box-shadow: 0 6px 15px rgba(212, 175, 55, 0.15);
 }
 
-/* Список транзакцій */
+/* Списки транзакцій */
 .history-section { text-align: left; display: flex; flex-direction: column; gap: 12px; }
 .history-title { margin: 0; font-size: 16px; font-weight: 600; color: #fff; padding-left: 5px; }
-.transactions-list { display: flex; flex-direction: column; gap: 10px; background: #1e293b; border-radius: 20px; padding: 14px; border: 1px solid #334155; }
-.status-message { margin: 0; color: #94a3b8; font-size: 13px; text-align: center; padding: 15px 0; }
-.tx-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #334155; gap: 10px; }
+.transactions-list { display: flex; flex-direction: column; gap: 10px; background: #1a1d21; border-radius: 20px; padding: 14px; border: 1px solid #4a3b2c; }
+.status-message { margin: 0; color: #a1a1aa; font-size: 13px; text-align: center; padding: 15px 0; }
+.tx-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #2d3239; gap: 10px; }
 .tx-left { display: flex; align-items: center; gap: 10px; }
 .tx-icon-wrapper { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .tx-info { display: flex; flex-direction: column; gap: 2px; }
 .tx-description { margin: 0; font-size: 14px; font-weight: 500; color: #f8fafc; }
-.tx-date { margin: 0; font-size: 11px; color: #94a3b8; }
+.tx-date { margin: 0; font-size: 11px; color: #a1a1aa; }
 .tx-amount { margin: 0; font-size: 14px; font-weight: 600; }
 
-/* 🌟 СІТКА НА 4 ПОСЛУГ ТА ПЛАВНИЙ HOVER-ЕФЕКТ */
+/* Сітка послуг */
 .services-grid4 { 
   display: grid; 
   grid-template-columns: 1fr 1fr; 
@@ -150,7 +150,7 @@
   width: 100%; 
 }
 .service-card { 
-  background: #1e293b; 
+  background: #1a1d21; 
   border-radius: 20px; 
   padding: 22px 15px; 
   display: flex; 
@@ -158,54 +158,54 @@
   align-items: center; 
   gap: 12px; 
   cursor: pointer; 
-  border: 1px solid #334155; 
+  border: 1px solid #4a3b2c; 
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease, box-shadow 0.25s ease;
   box-shadow: 0 4px 6px rgba(0,0,0,0.15);
 }
 .service-card:hover {
   transform: translateY(-4px);
-  border-color: #2ec4b6;
-  background: #22314d;
-  box-shadow: 0 10px 20px rgba(46, 196, 182, 0.2);
+  border-color: #d4af37;
+  background: #2a2218;
+  box-shadow: 0 10px 20px rgba(212, 175, 55, 0.15);
 }
 .service-name { margin: 0; font-size: 13px; font-weight: 600; color: #f8fafc; text-align: center; }
 
-/* Вікна форм */
+/* Вікна форм та аналітика */
 .service-form-box { 
-  background: #1e293b; 
-  border: 1px solid #334155; 
+  background: #1a1d21; 
+  border: 1px solid #4a3b2c; 
   border-radius: 20px; 
   padding: 20px; 
   text-align: left;
   animation: fadeInUp 0.3s ease-out;
 }
-.math-report-card { background: #1e1b4b; border: 1px solid #311042; border-radius: 20px; padding: 20px; text-align: left; border-left: 4px solid #2ec4b6; }
+.math-report-card { background: #231b14; border: 1px solid #544331; border-radius: 20px; padding: 20px; text-align: left; border-left: 4px solid #d4af37; }
 
 /* Інпути та кнопки */
 .bank-form { display: flex; flex-direction: column; gap: 14px; }
 .input-group { display: flex; flex-direction: column; gap: 6px; text-align: left; }
-.bank-label { font-size: 13px; color: #94a3b8; font-weight: 500; }
-.bank-input { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 12px; color: #fff; font-size: 15px; outline: none; transition: border-color 0.2s; }
-.bank-input:focus { border-color: #2ec4b6; }
+.bank-label { font-size: 13px; color: #a1a1aa; font-weight: 500; }
+.bank-input { background: #111418; border: 1px solid #4a3b2c; border-radius: 12px; padding: 12px; color: #fff; font-size: 15px; outline: none; transition: border-color 0.2s; }
+.bank-input:focus { border-color: #d4af37; }
 
 .submit-button { 
-  background: linear-gradient(135deg, #2ec4b6, #06b6d4); 
+  background: linear-gradient(135deg, #d4af37, #b45309); 
   border: none; 
   border-radius: 12px; 
   padding: 14px; 
-  color: #fff; 
+  color: #111418; 
   font-size: 15px; 
-  font-weight: 600; 
+  font-weight: 700; 
   cursor: pointer; 
   margin-top: 5px;
   transition: all 0.25s ease;
 }
 .submit-button:hover { 
   opacity: 0.95; 
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
 }
 
-/* 📱 ПОЛАГОДЖЕНА НАВІГАЦІЙНА ПАНЕЛЬ (ЗФІКСОВАНА ЧІТКО НА МІСЦІ) */
+/* 📱 НАВІГАЦІЯ */
 .nav-bar { 
   position: fixed; 
   bottom: 0; 
@@ -214,24 +214,23 @@
   width: 100%; 
   max-width: 390px; 
   height: 70px; 
-  background: rgba(30, 41, 59, 0.95); 
+  background: rgba(26, 29, 33, 0.96); 
   backdrop-filter: blur(10px); 
-  border-top: 1px solid #334155; 
+  border-top: 1px solid #4a3b2c; 
   display: flex; 
   justify-content: space-around; 
   align-items: center; 
   z-index: 999; 
 }
-.nav-button { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: #94a3b8; transition: color 0.2s; }
+.nav-button { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: #a1a1aa; transition: color 0.2s; }
 .nav-label { font-size: 10px; font-weight: 600; }
 
-/* Спливаючі вікна модалок */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; padding: 20px; z-index: 1000; }
-.modal-content { background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 24px; width: 100%; max-width: 350px; animation: fadeInUp 0.3s ease-out; }
-.admin-user-row { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #334155; width: 100%; }
-.admin-action-btn { background: #10b981; border: none; border-radius: 6px; padding: 4px 10px; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+/* Модалки */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(17, 20, 24, 0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; padding: 20px; z-index: 1000; }
+.modal-content { background: #1a1d21; border: 1px solid #4a3b2c; border-radius: 24px; padding: 24px; width: 100%; max-width: 350px; animation: fadeInUp 0.3s ease-out; }
+.admin-user-row { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #4a3b2c; width: 100%; }
+.admin-action-btn { background: #d4af37; border: none; border-radius: 6px; padding: 4px 10px; color: #111418; font-size: 12px; font-weight: 600; cursor: pointer; }
 
-/* Анімація появи */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

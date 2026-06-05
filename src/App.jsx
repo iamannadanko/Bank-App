@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { useBankData } from './useBankData'
 import './App.css'
 
 function App() {
   const bank = useBankData();
+
+  // 🔥 ВСТАНОВЛЮЄМО НАЗВУ "Hephaestus Construct" ДЛЯ ВКЛАДКИ БРАУЗЕРА (МАЛЮНОК image_a5c88c.png)
+  useEffect(() => {
+    document.title = "Hephaestus Construct"
+  }, [])
 
   // Поля форм авторизації
   const [authEmail, setAuthEmail] = useState('')
@@ -30,7 +35,7 @@ function App() {
   const [transferAmount, setTransferAmount] = useState('')
   const [transferDesc, setTransferDesc] = useState('')
   const [isSending, setIsSending] = useState(false)
-  const [cardTheme, setCardTheme] = useState('cyber')
+  const [cardTheme, setCardTheme] = useState('cyber') // 'cyber' (золото), 'platinum' (сірий), 'gold' (бронза)
 
   // Послуги
   const [activeServiceForm, setActiveServiceForm] = useState(null)
@@ -84,8 +89,8 @@ function App() {
       const { data: user } = await supabase.from('users').select('user_id').eq('email', authEmail.trim().toLowerCase()).maybeSingle()
       if (!user) { bank.setLoading(false); return alert('Користувача з такою поштою не знайдено!'); }
 
-      const hashedNewPassword = await bank.hashPassword(newPassword)
-      const { error } = await supabase.from('users').update({ password_hash: hashedNewPassword, password: null }).eq('user_id', user.user_id)
+      const hashedPasswordValue = await bank.hashPassword(newPassword)
+      const { error } = await supabase.from('users').update({ password_hash: hashedPasswordValue, password: null }).eq('user_id', user.user_id)
       if (error) throw error
 
       alert('Пароль успішно оновлено та захищено хешем SHA-256! Спробуйте увійти. 🎉')
@@ -224,10 +229,12 @@ function App() {
     alert(`Статус оновлено: ${newStatus}`)
   }
 
-  const getCardBg = () => {
-    if (cardTheme === 'platinum') return 'linear-gradient(135deg, #334155 0%, #0f172a 100%)'
-    if (cardTheme === 'gold') return 'linear-gradient(135deg, #b45309 0%, #78350f 100%)'
-    return 'linear-gradient(135deg, #1e1b4b 0%, #311042 100%)'
+  // 🪙 ФУНКЦІЯ ВИЗНАЧЕННЯ АНТИЧНИХ КОЛЬОРІВ КАРТКИ ДЛЯ ЦИКЛУ MAP
+  const getDynamicCardBg = (type) => {
+    const selected = type || cardTheme;
+    if (selected === 'platinum') return 'linear-gradient(135deg, #4b5563 0%, #1f2937 100%)' /* Кам'яний сірий мармур */
+    if (selected === 'gold') return 'linear-gradient(135deg, #78350f 0%, #291305 100%)' /* Антична бронза */
+    return 'linear-gradient(135deg, #b45309 0%, #d4af37 100%)' /* Чисте золото Гефеста */
   }
 
   return (
@@ -237,7 +244,6 @@ function App() {
           <span className="logo-icon">⚡</span>
           <h1 className="logo-text">Hephaestus {bank.userRole === 'EMPLOYEE' ? 'Staff' : 'Construct'}</h1>
         </div>
-        {/* ОНОВЛЕНО: Тепер викликається bank.logoutUser(), який повністю чистить сесію сховища */}
         {bank.isLoggedIn && <button onClick={() => bank.logoutUser()} className="logout-button">Вихід 🚪</button>}
       </header>
 
@@ -281,14 +287,14 @@ function App() {
         
         /* 🏢 ПАНЕЛЬ ПРАЦІВНИКА */
         <div className="app-screen">
-          <div className="welcome-section"><h2 className="page-title">Paneli pratsivnyka banku</h2><p className="greet-label">Управління клієнтами</p></div>
+          <div className="welcome-section"><h2 className="page-title">Панель Працівника Банку</h2><p className="greet-label">Управління клієнтами</p></div>
           <div className="history-section">
             <h3 className="history-title">📋 Запити на верифікацію (KYC)</h3>
             <div className="transactions-list">
               {bank.allUsers.filter(u => u.role !== 'EMPLOYEE').map(u => (
                 <div key={u.user_id} className="admin-user-row">
                   <div><p style={{margin: 0, fontWeight: '600'}}>{u.full_name}</p><p style={{margin: 0, fontSize: '11px', color: '#94a3b8'}}>{u.email}</p></div>
-                  <div style={{textAlign: 'right'}}><span style={{fontSize: '11px', padding: '3px 8px', borderRadius: '6px', marginRight: '8px', background: u.verification_status === 'VERIFIED' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)', color: u.verification_status === 'VERIFIED' ? '#10b981' : '#ef4444'}}>{u.verification_status || 'PENDING'}</span>
+                  <div style={{textAlign: 'right'}}><span style={{fontSize: '11px', padding: '3px 8px', borderRadius: '6px', marginRight: '8px', background: u.verification_status === 'VERIFIED' ? 'rgba(212,175,55,0.2)' : 'rgba(239,68,68,0.2)', color: u.verification_status === 'VERIFIED' ? '#d4af37' : '#ef4444'}}>{u.verification_status || 'PENDING'}</span>
                     {u.verification_status !== 'VERIFIED' && <button onClick={() => handleUpdateVerification(u.user_id, 'VERIFIED')} className="admin-action-btn">Підтвердити</button>}
                   </div>
                 </div>
@@ -306,7 +312,7 @@ function App() {
                 <div className="welcome-section">
                   <p className="greet-label">Вітаємо знову,</p>
                   <h2 className="user-name">{bank.userFullName}</h2>
-                  <div style={{marginTop: '6px'}}><span style={{fontSize: '11px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold', background: bank.verificationStatus === 'VERIFIED' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)', color: bank.verificationStatus === 'VERIFIED' ? '#10b981' : '#ef4444'}}>{bank.verificationStatus === 'VERIFIED' ? '🛡️ Верифікований клієнт' : '⚠️ Акаунт не верифіковано'}</span></div>
+                  <div style={{marginTop: '6px'}}><span style={{fontSize: '11px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold', background: bank.verificationStatus === 'VERIFIED' ? 'rgba(212,175,55,0.2)' : 'rgba(239,68,68,0.2)', color: bank.verificationStatus === 'VERIFIED' ? '#d4af37' : '#ef4444'}}>{bank.verificationStatus === 'VERIFIED' ? '🛡️ Верифікований клієнт' : '⚠️ Акаунт не верифіковано'}</span></div>
                 </div>
 
                 {bank.verificationStatus !== 'VERIFIED' && (
@@ -319,27 +325,36 @@ function App() {
                   </div>
                 )}
 
-                <div className="credit-card" style={{background: getCardBg()}}>
-                  <div className="card-top"><span style={{color: cardTheme === 'gold' ? '#fef08a' : '#2ec4b6'}}>HEPHAESTUS PREMIUM</span><span>Visa</span></div>
-                  <div style={{width: '38px', height: '28px', background: 'linear-gradient(135deg, #e2e8f0, #94a3b8)', borderRadius: '6px'}}></div>
-                  <div className="card-middle"><p className="balance-label">Поточний баланс</p><p className="card-balance">{bank.balance.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} UAH</p></div>
-                  <div className="credit-card.hover card-bottom"><span>4441 1144 2255 3366</span><span>06/31</span></div>
-                </div>
+                {/* 🗺️ ДИНАМІЧНИЙ ВИВІД КАРТОК КОРИСТУВАЧА З ЦИКЛУ MAP */}
+                {(bank.userCards || []).map((card, index) => (
+                  <div key={index} className="credit-card" style={{background: getDynamicCardBg(card.card_type), marginBottom: '5px'}}>
+                    <div className="card-top"><span style={{color: '#fff', fontWeight: 'bold', letterSpacing: '1px'}}>HEPHAESTUS {card.card_type.toUpperCase()}</span><span>Visa</span></div>
+                    <div style={{width: '38px', height: '28px', background: 'linear-gradient(135deg, #f3f4f6, #9ca3af)', borderRadius: '6px'}}></div>
+                    <div className="card-middle"><p className="balance-label">Поточний баланс</p><p className="card-balance">{bank.balance.toLocaleString('uk-UA', { minimumFractionDigits: 2 })} UAH</p></div>
+                    <div className="card-bottom"><span>{card.card_number}</span><span>{card.expiry_date}</span></div>
+                  </div>
+                ))}
 
+                {/* ПАНЕЛЬ ВИБОРУ ТЕМ ДЛЯ НОВОЇ КАРТИ */}
                 <div className="theme-selector">
-                  <p style={{margin: 0, fontSize: '12px', color: '#94a3b8'}}>Дизайн картки:</p>
+                  <p style={{margin: 0, fontSize: '12px', color: '#cbd5e1'}}>Дизайн нової карти:</p>
                   <div style={{display: 'flex', gap: '6px'}}>
-                    <button onClick={() => setCardTheme('cyber')} className="theme-btn" style={{background: '#311042', borderColor: cardTheme === 'cyber' ? '#2ec4b6' : 'transparent'}}>Cyber</button>
-                    <button onClick={() => setCardTheme('platinum')} className="theme-btn" style={{background: '#334155', borderColor: cardTheme === 'platinum' ? '#2ec4b6' : 'transparent'}}>Platinum</button>
-                    <button onClick={() => setCardTheme('gold')} className="theme-btn" style={{background: '#78350f', borderColor: cardTheme === 'gold' ? '#fef08a' : 'transparent'}}>Gold</button>
+                    <button onClick={() => setCardTheme('cyber')} className="theme-btn" style={{background: '#d4af37', color: '#111418', fontWeight: 'bold'}}>Gold</button>
+                    <button onClick={() => setCardTheme('platinum')} className="theme-btn" style={{background: '#475569', color: '#fff'}}>Grey</button>
+                    <button onClick={() => setCardTheme('gold')} className="theme-btn" style={{background: '#78350f', color: '#fff'}}>Bronze</button>
                   </div>
                 </div>
 
+                {/* 🔥 НОВА КНОПКА: СТВОРЕННЯ / ВИПУСК НОВОЇ КАРТКИ */}
+                <button className="submit-button" onClick={() => bank.handleCreateNewCard(cardTheme)} style={{width: '100%', padding: '12px', fontSize: '13px', margin: '0 0 5px 0'}}>
+                  🔨 Викувати нову картку ({cardTheme.toUpperCase()})
+                </button>
+
                 <div className="actions-grid">
-                  <button className="action-button" onClick={() => setIsModalOpen(true)}><span>💸</span><span className="action-label" style={{color: '#2ec4b6', fontWeight: 'bold'}}>Переказати</span></button>
-                  <button className="action-button" style={{borderColor: '#f43f5e', background: 'rgba(244, 63, 94, 0.03)'}} onClick={() => setIsWithdrawOpen(true)}><span>🏧</span><span className="action-label" style={{color: '#f43f5e'}}>Вивести</span></button>
+                  <button className="action-button" onClick={() => setIsModalOpen(true)}><span>💸</span><span className="action-label" style={{color: '#e5c158', fontWeight: 'bold'}}>Переказати</span></button>
+                  <button className="action-button" style={{borderColor: '#b45309', background: 'rgba(180, 83, 9, 0.03)'}} onClick={() => setIsWithdrawOpen(true)}><span>🏧</span><span className="action-label" style={{color: '#e5c158'}}>Вивести</span></button>
                   <button className="action-button" onClick={() => setActiveTab('services')}><span>➕</span><span className="action-label">Послуги</span></button>
-                  <button className="action-button" style={{borderColor: '#a5f3fc'}} onClick={() => setIsSettingsOpen(true)}><span>⚙️</span><span className="action-label" style={{color: '#a5f3fc'}}>Налаштування</span></button>
+                  <button className="action-button" style={{borderColor: '#d4af37'}} onClick={() => setIsSettingsOpen(true)}><span>⚙️</span><span className="action-label" style={{color: '#d4af37'}}>Налаштування</span></button>
                 </div>
 
                 <div className="history-section">
@@ -349,10 +364,10 @@ function App() {
                       bank.transactions.map((tx) => (
                         <div key={tx.transaction_id} className="tx-item">
                           <div className="tx-left">
-                            <div className="tx-icon-wrapper" style={{background: tx.amount < 0 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)'}}><span>{tx.amount < 0 ? '🛒' : '💰'}</span></div>
+                            <div className="tx-icon-wrapper" style={{background: tx.amount < 0 ? 'rgba(180,83,9,0.1)' : 'rgba(212,175,55,0.1)'}}><span>{tx.amount < 0 ? '🔨' : '🪙'}</span></div>
                             <div className="tx-info"><p className="tx-description">{tx.description}</p><p className="tx-date">{tx.created_at ? tx.created_at.split('T')[0] : 'Сьогодні'}</p></div>
                           </div>
-                          <div style={{textAlign: 'right'}}><p className="tx-amount" style={{ color: tx.amount < 0 ? '#ef4444' : '#10b981' }}>{tx.amount < 0 ? '' : '+'}{tx.amount} ₴</p></div>
+                          <div style={{textAlign: 'right'}}><p className="tx-amount" style={{ color: tx.amount < 0 ? '#b45309' : '#d4af37' }}>{tx.amount < 0 ? '' : '+'}{tx.amount} ₴</p></div>
                         </div>
                       ))
                     )}
@@ -373,7 +388,7 @@ function App() {
 
                 {activeServiceForm && (
                   <div className="service-form-box">
-                    <h4 style={{margin: '0 0 15px 0', color: '#2ec4b6'}}>
+                    <h4 style={{margin: '0 0 15px 0', color: '#d4af37'}}>
                       {activeServiceForm === 'phone' && '📱 Поповнення мобільного'}
                       {activeServiceForm === 'internet' && '🌐 Оплата Інтернету'}
                       {activeServiceForm === 'utilities' && '🏠 Оплата Комунальних'}
@@ -395,12 +410,12 @@ function App() {
               <>
                 <div className="welcome-section"><h2 className="page-title">Аналітика витрат</h2></div>
                 <div className="math-report-card">
-                  <h4 style={{margin: '0 0 15px 0'}}>Категоріальний розподіл витрат:</h4>
-                  <div style={{marginBottom: '10px'}}>🛒 Супермаркети та продукты: **{bank.catSilpo || 0} ₴**</div>
+                  <h4 style={{margin: '0 0 15px 0', color: '#d4af37'}}>Категоріальний розподіл витрат:</h4>
+                  <div style={{marginBottom: '10px'}}>🔨 Кузня та товари: **{bank.catSilpo || 0} ₴**</div>
                   <div style={{marginBottom: '10px'}}>📱 Мобільний зв'язок: **{bank.catPhone || 0} ₴**</div>
                   <div style={{marginBottom: '10px'}}>🌐 Інтернет та ТБ: **{bank.catInternet || 0} ₴**</div>
-                  <div style={{marginBottom: '10px'}}>💸 Перекази (Card-to-Card): **{bank.catTransfers || 0} ₴**</div>
-                  <hr style={{borderColor: '#334155', margin: '15px 0'}} />
+                  <div style={{marginBottom: '10px'}}>🪙 Перекази карт: **{bank.catTransfers || 0} ₴**</div>
+                  <hr style={{borderColor: '#453624', margin: '15px 0'}} />
                   <p style={{margin: 0, fontSize: '13px', color: '#cbd5e1'}}>Вільний залишок капіталу: **{bank.savingsRate || 0}%**</p>
                 </div>
               </>
@@ -417,10 +432,10 @@ function App() {
           </div>
 
           <nav className="nav-bar">
-            <button className="nav-button" style={{color: activeTab === 'home' ? '#2ec4b6' : '#94a3b8'}} onClick={() => setActiveTab('home')}>🏠<span className="nav-label">Головна</span></button>
-            <button className="nav-button" style={{color: activeTab === 'services' ? '#2ec4b6' : '#94a3b8'}} onClick={() => setActiveTab('services')}>🛒<span className="nav-label">Послуги</span></button>
-            <button className="nav-button" style={{color: activeTab === 'analytics' ? '#2ec4b6' : '#94a3b8'}} onClick={() => setActiveTab('analytics')}>📊<span className="nav-label">Аналітика</span></button>
-            <button className="nav-button" style={{color: activeTab === 'support' ? '#2ec4b6' : '#94a3b8'}} onClick={() => setActiveTab('support')}>💬<span className="nav-label">Підтримка</span></button>
+            <button className="nav-button" style={{color: activeTab === 'home' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('home')}>🏠<span className="nav-label">Головна</span></button>
+            <button className="nav-button" style={{color: activeTab === 'services' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('services')}>🛒<span className="nav-label">Послуги</span></button>
+            <button className="nav-button" style={{color: activeTab === 'analytics' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('analytics')}>📊<span className="nav-label">Аналітика</span></button>
+            <button className="nav-button" style={{color: activeTab === 'support' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('support')}>💬<span className="nav-label">Підтримка</span></button>
           </nav>
         </div>
       )}
@@ -428,8 +443,8 @@ function App() {
       {/* 💳 МОДАЛКА ПЕРЕКАЗУ ЗА НОМЕРОМ КАРТКИ */}
       {isModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{background: '#1e293b', borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '350px'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}><h3>Переказ на картку 💳</h3><button onClick={() => setIsModalOpen(false)} style={{background: 'none', border: 'none', color: '#94a3b8', fontSize: '18px', cursor: 'pointer'}}>✕</button></div>
+          <div className="modal-content">
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}><h3>Переказ на картку 💳</h3><button onClick={() => setIsModalOpen(false)} style={{background: 'none', border: 'none', color: '#d4af37', fontSize: '18px', cursor: 'pointer'}}>✕</button></div>
             <form onSubmit={handleTransferSubmit} className="bank-form">
               <div className="input-group"><label className="bank-label">Номер картки отримувача</label><input type="text" maxLength="16" placeholder="4441 1144 2255 3366" required value={targetCardNumber} onChange={(e) => setTargetCardNumber(e.target.value.replace(/\D/g, ''))} className="bank-input" /></div>
               <div className="input-group"><label className="bank-label">Сума (UAH)</label><input type="number" step="0.01" required value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} className="bank-input" /></div>
@@ -443,12 +458,12 @@ function App() {
       {/* 🏧 МОДАЛКА ВИВЕДЕННЯ КОШТІВ */}
       {isWithdrawOpen && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{background: '#1e293b', borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '350px'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}><h3>Вивід коштів 🏧</h3><button onClick={() => setIsWithdrawOpen(false)} style={{background: 'none', border: 'none', color: '#94a3b8', fontSize: '18px', cursor: 'pointer'}}>✕</button></div>
+          <div className="modal-content">
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}><h3>Вивід коштів 🏧</h3><button onClick={() => setIsWithdrawOpen(false)} style={{background: 'none', border: 'none', color: '#d4af37', fontSize: '18px', cursor: 'pointer'}}>✕</button></div>
             <form onSubmit={handleWithdrawSubmit} className="bank-form">
               <div className="input-group"><label className="bank-label">Номер вашої картки для зарахування</label><input type="text" maxLength="16" placeholder="Введіть 16 цифр вашої карти" required value={targetCardNumber} onChange={(e) => setTargetCardNumber(e.target.value.replace(/\D/g, ''))} className="bank-input" /></div>
               <div className="input-group"><label className="bank-label">Сума виводу (UAH)</label><input type="number" required placeholder="0.00" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} className="bank-input" /></div>
-              <button type="submit" disabled={isSending} className="submit-button" style={{background: 'linear-gradient(135deg, #f43f5e, #e11d48)'}}>{isSending ? 'Обробка...' : 'Вивести на карту'}</button>
+              <button type="submit" disabled={isSending} className="submit-button" style={{background: 'linear-gradient(135deg, #b45309, #78350f)', color: '#fff'}}>{isSending ? 'Обробка...' : 'Вивести на карту'}</button>
             </form>
           </div>
         </div>
@@ -457,10 +472,10 @@ function App() {
       {/* ⚙️ МОДАЛКА НАЛАШТУВАНЬ БЕЗПЕКИ */}
       {isSettingsOpen && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{background: '#1e293b', borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '350px'}}>
+          <div className="modal-content">
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
               <h3>Налаштування безпеки ⚙️</h3>
-              <button onClick={() => setIsSettingsOpen(false)} style={{background: 'none', border: 'none', color: '#94a3b8', fontSize: '18px', cursor: 'pointer'}}>✕</button>
+              <button onClick={() => setIsSettingsOpen(false)} style={{background: 'none', border: 'none', color: '#d4af37', fontSize: '18px', cursor: 'pointer'}}>✕</button>
             </div>
             <form onSubmit={handleChangePassword} className="bank-form">
               <div className="input-group">
