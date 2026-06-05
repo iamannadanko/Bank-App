@@ -16,7 +16,9 @@ export function useBankData() {
   
   const [verificationStatus, setVerificationStatus] = useState('PENDING')
   const [userFullName, setUserFullName] = useState('')
-  const [balance, setBalance] = useState(0) // Загальний баланс користувача
+  const [userEmail, setUserEmail] = useState('')
+  const [userPhone, setUserPhone] = useState('')
+  const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState([])
   const [clientTickets, setClientTickets] = useState([])
   const [userCards, setUserCards] = useState([])
@@ -48,7 +50,7 @@ export function useBankData() {
       .filter(t => t.amount < 0 && t.description && t.description.toLowerCase().includes(keyword.toLowerCase()))
       .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
 
-    setCatSilpo(getSum('сільпо') || getSum('продукти'))
+    setCatSilpo(getSum('сільпо') || getSum('продукти') || getSum('кузня'))
     setCatPhone(getSum('мобільн') || getSum('звʼязок'))
     setCatInternet(getSum('інтернет') || getSum('тб'))
     setCatTransfers(safeTx.filter(t => t.amount < 0 && t.description && t.description.includes('💸')).reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0))
@@ -67,20 +69,20 @@ export function useBankData() {
         const { data: userData } = await supabase.from('users').select('*').eq('user_id', userId).single()
         if (userData) {
           setUserFullName(userData.full_name)
+          setUserEmail(userData.email)
+          setUserPhone(userData.phone_number || '+380971234567')
           setVerificationStatus(userData.verification_status || 'PENDING')
         }
 
-        // 🗺️ СИНХРОНІЗАЦІЯ КАРТОК: Завантажуємо картки з бази
         let { data: cardsList } = await supabase.from('cards').select('*').eq('user_id', userId).order('card_id', { ascending: true })
         if (!cardsList || cardsList.length === 0) {
-          // Якщо карток взагалі немає, створюємо першу основну карту з балансом 5000
+          // ТУТ ЗАЛИШЕНО ГРОШІ НА ПОЧАТКОВІЙ КАРТЦІ (5000 UAH), ЯК ТИ Й ПРОСИЛА
           const defaultCard = { user_id: userId, card_number: '4441 1144 2255 3366', card_type: 'gold', expiry_date: '06/31', card_balance: 5000.00 }
           await supabase.from('cards').insert([defaultCard])
           cardsList = [defaultCard]
         }
         setUserCards(cardsList)
 
-        // Загальний баланс рахунку рахується як сума балансів всіх активних карток
         const totalCardsBalance = cardsList.reduce((sum, c) => sum + Number(c.card_balance || 0), 0)
         setBalance(totalCardsBalance)
 
@@ -98,7 +100,6 @@ export function useBankData() {
     }
   }
 
-  // 🔨 ВИПУСТИТИ НОВУ КАРТКУ (ТЕПЕР СТВОРЮЄТЬСЯ З БАЛАНСОМ 0.00 ₴!)
   const handleCreateNewCard = async (themeName) => {
     try {
       setLoading(true)
@@ -116,7 +117,7 @@ export function useBankData() {
         card_number: generatedNumber,
         card_type: themeName || 'cyber',
         expiry_date: '09/33',
-        card_balance: 0.00 // ПОЛАГОДЖЕНО: Нова карта завжди створюється порожньою!
+        card_balance: 0.00 // Наступні карти створюються порожніми
       }
 
       const { error } = await supabase.from('cards').insert([newCardObj])
@@ -136,13 +137,43 @@ export function useBankData() {
     }
   }
 
-  // 🔥 НОВА ФУНКЦІЯ: ЗАКРИТИ КАРТКУ
+  // 🔥 НОВА ФУНКЦІЯ: ОТРИМАННЯ КРЕДИТУ ВІД БАНКУ
+  const handleTakeCredit = async (creditAmount) => {
+    const amountNum = parseFloat(creditAmount)
+    if (isNaN(amountNum) || amountNum <= 0) return alert('Введіть коректну суму кредиту!');
+
+    const mainCard = userCards[0];
+    if (!mainCard) return alert('Не знайдено активної картки для зарахування кредиту!');
+
+    try {
+      setLoading(true)
+      // Нараховуємо гроші на першу (головну) картку
+      await supabase.from('cards').update({ card_balance: Number(mainCard.card_balance) + amountNum }).eq('card_id', mainCard.card_id)
+      
+      // Записуємо надходження в історію транзакцій
+      await supabase.from('transactions').insert([{
+        user_id: currentUserId,
+        amount: amountNum,
+        total_amount: amountNum,
+        transaction_type: 'INCOME',
+        description: `🏛️ Отримано миттєвий кредит «Благословення Зевса»`
+      }])
+
+      alert(`Кредит у розмірі ${amountNum} UAH успішно зараховано на вашу головну картку! 🪙`);
+      await loadSystemData(currentUserId, userRole)
+    } catch (err) {
+      console.error(err)
+      alert('Помилка при отриманні кредиту')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleCloseCard = async (cardId, cardNumber) => {
     if (userCards.length <= 1) {
-      alert('Помилка! Не можна закрити останню карту банку. У вас має залишатися хоча б один рахунок!');
+      alert('Помилка! Не можна закрити останню карту банку.');
       return;
     }
-    
     const confirmClose = window.confirm(`Ви впевнені, що хочете закрити та анулювати карту ${cardNumber}?`);
     if (!confirmClose) return;
 
@@ -160,7 +191,6 @@ export function useBankData() {
       await loadSystemData(currentUserId, userRole)
     } catch (err) {
       console.error(err)
-      alert('Помилка при закритті картки')
     } finally {
       setLoading(false)
     }
@@ -189,6 +219,7 @@ export function useBankData() {
     setUserRole('CLIENT')
     setIsLoggedIn(false)
     setUserFullName('')
+    setUserEmail('')
     setBalance(0)
     setTransactions([])
     setUserCards([])
@@ -196,10 +227,10 @@ export function useBankData() {
 
   return {
     isLoggedIn, setIsLoggedIn: loginUser, logoutUser, authMode, setAuthMode, currentUserId, setCurrentUserId,
-    userRole, setUserRole, verificationStatus, setVerificationStatus, userFullName,
+    userRole, setUserRole, verificationStatus, setVerificationStatus, userFullName, userEmail, userPhone,
     balance, setBalance, transactions, setTransactions, clientTickets, setClientTickets,
     allUsers, allTickets, loading, setLoading, hashPassword, loadSystemData,
     catSilpo, catPhone, catInternet, catTransfers, savingsRate,
-    userCards, handleCreateNewCard, handleCloseCard
+    userCards, handleCreateNewCard, handleCloseCard, handleTakeCredit
   }
 }
