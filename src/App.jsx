@@ -14,6 +14,7 @@ function App() {
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authName, setAuthName] = useState('')
+  const [authPhone, setAuthPhone] = useState('') // 🔥 ДОДАНО: Стейт для реального номера телефону користувача
   const [activeTab, setActiveTab] = useState('home')
   const [supportMessage, setSupportMessage] = useState('')
   
@@ -62,7 +63,18 @@ function App() {
       const { data: existingUser } = await supabase.from('users').select('user_id').eq('email', inputEmail).maybeSingle()
       if (existingUser) { bank.setLoading(false); return alert('Цей Email вже зайнятий!'); }
 
-      const { data: newUser } = await supabase.from('users').insert([{ full_name: authName.trim(), email: inputEmail, password_hash: hashedPassword, phone_number: '+38097' + Math.floor(1000000 + Math.random() * 9000000).toString(), role: 'CLIENT', verification_status: 'PENDING' }]).select().single()
+      // 🔥 ОНОВЛЕНО: Тепер при реєстрації в базу записується саме той номер, який ввела Анна чи Коля Доб
+      if (!authPhone.trim()) { bank.setLoading(false); return alert('Будь ласка, введіть номер телефону!'); }
+
+      const { data: newUser } = await supabase.from('users').insert([{ 
+        full_name: authName.trim(), 
+        email: inputEmail, 
+        password_hash: hashedPassword, 
+        phone_number: authPhone.trim(), // Записуємо реальний телефон
+        role: 'CLIENT', 
+        verification_status: 'PENDING' 
+      }]).select().single()
+
       if (newUser) {
         const randomIban = 'UA' + Math.floor(10000000000 + Math.random() * 90000000000).toString()
         await supabase.from('accounts').insert([{ user_id: newUser.user_id, balance: 5000.00, iban: randomIban }])
@@ -264,7 +276,11 @@ function App() {
               <h2 className="auth-title">{bank.authMode === 'login' ? 'Вхід у банкінг' : 'Створити акаунт'}</h2>
               <form onSubmit={handleAuthSubmit} className="bank-form">
                 {bank.authMode === 'register' && (
-                  <div className="input-group"><label className="bank-label">Повне ім'я</label><input type="text" placeholder="Коля Доб" required value={authName} onChange={(e) => setAuthName(e.target.value)} className="bank-input" /></div>
+                  <>
+                    <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Повне ім'я</label><input type="text" placeholder="Данько Анна" required value={authName} onChange={(e) => setAuthName(e.target.value)} className="bank-input" /></div>
+                    {/* 🔥 ДОДАНО: Поле для введення телефону під час реєстрації нового користувача */}
+                    <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Номер телефону</label><input type="text" placeholder="+380970000000" required value={authPhone} onChange={(e) => setAuthPhone(e.target.value)} className="bank-input" /></div>
+                  </>
                 )}
                 <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Електронна пошта</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
                 <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Пароль</label><input type="password" placeholder="••••••••" required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="bank-input" /></div>
@@ -438,7 +454,7 @@ function App() {
               </>
             )}
 
-            {/* 🔥 ПОЛУНОЦІННИЙ ЕКРАН ПІДТРИМКИ КУЗНІ (БЕЗПЕЧНИЙ РЕНДЕРИНГ МАСИВУ) */}
+            {/* СЛУЖБА ПІДТРИМКИ КУЗНІ (ВКЛАДКА 4) */}
             {activeTab === 'support' && (
               <>
                 <div className="welcome-section"><h2 className="page-title">Служба технічної підтримки 💬</h2><p className="greet-label">Залиште ваше звернення технічним майстрам кузні</p></div>
