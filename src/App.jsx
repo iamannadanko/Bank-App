@@ -66,10 +66,7 @@ function App() {
       if (newUser) {
         const randomIban = 'UA' + Math.floor(10000000000 + Math.random() * 90000000000).toString()
         await supabase.from('accounts').insert([{ user_id: newUser.user_id, balance: 5000.00, iban: randomIban }])
-        
-        // Початкова карта отримує свої законні 5000 UAH
         await supabase.from('cards').insert([{ user_id: newUser.user_id, card_number: '4441 1144 2255 3366', card_type: 'gold', expiry_date: '06/31', card_balance: 5000.00 }])
-        
         await supabase.from('transactions').insert([{ user_id: newUser.user_id, amount: 5000.00, total_amount: 5000.00, transaction_type: 'INCOME', description: '🎉 Стартовий бонус Hephaestus Premium' }])
         alert('Акаунт успішно створено!');
         bank.setIsLoggedIn(newUser.user_id, 'CLIENT')
@@ -91,11 +88,15 @@ function App() {
       if (!user) { bank.setLoading(false); return alert('Користувача з такою поштою не знайдено!'); }
 
       const hashedPasswordValue = await bank.hashPassword(newPassword)
-      await supabase.from('users').update({ password_hash: hashedPasswordValue, password: null }).eq('user_id', user.user_id)
-      alert('Пароль успішно оновлено! 🎉'); setNewPassword(''); bank.setAuthMode('login');
+      const { error } = await supabase.from('users').update({ password_hash: hashedPasswordValue, password: null }).eq('user_id', user.user_id)
+      if (error) throw error
+
+      alert('Пароль успішно оновлено та захищено хешем SHA-256! Спробуйте увійти. 🎉')
+      setNewPassword('')
+      bank.setAuthMode('login')
     } catch (err) {
       console.error(err)
-    } finaly {
+    } finally {
       bank.setLoading(false)
     }
   }
@@ -182,7 +183,7 @@ function App() {
 
       setIsModalOpen(false); setIsSending(false); setTransferAmount(''); setTargetCardNumber(''); setTransferDesc('');
       await bank.loadSystemData(bank.currentUserId, 'CLIENT')
-      alert('Переказ за номером картки успешно виконано! 🚀')
+      alert('Переказ за номером картки успішно виконано! 🚀')
     } catch (err) {
       console.error(err); setIsSending(false);
     }
@@ -415,17 +416,17 @@ function App() {
                   <div style={{marginBottom: '10px'}}>🔨 Кузня та товари: **{bank.catSilpo || 0} ₴**</div>
                   <div style={{marginBottom: '10px'}}>📱 Мобільний зв'язок: **{bank.catPhone || 0} ₴**</div>
                   <div style={{marginBottom: '10px'}}>🌐 Інтернет та ТБ: **{bank.catInternet || 0} ₴**</div>
-                  <div style={{marginBottom: '10px'}}>💸 Перекази карт: **{bank.catTransfers || 0} ₴**</div>
+                  <div style={{marginBottom: '10px'}}>🪙 Перекази карт: **{bank.catTransfers || 0} ₴**</div>
                   <hr style={{borderColor: '#453624', margin: '15px 0'}} />
                   <p style={{margin: 0, fontSize: '13px', color: '#cbd5e1'}}>Вільний залишок капіталу: **{bank.savingsRate || 0}%**</p>
                 </div>
               </>
             )}
 
-            {/* 🔥 ТУТ ПОВНІСТЮ ПОВЕРНЕНО ТА ВІДНОВЛЕНО СЛУЖБУ ПІДТРИМКИ КУЗНІ */}
+            {/* 🔥 ТУТ СЛУЖБА ПІДТРИМКИ КУЗНІ (ВКЛАДКА 4) */}
             {activeTab === 'support' && (
               <>
-                <div className="welcome-section"><h2 className="page-title">Служба технічної підтримки 💬</h2><p className="greet-label">Залиште ваше звернення майстрам</p></div>
+                <div className="welcome-section"><h2 className="page-title">Служба технічної підтримки 💬</h2><p className="greet-label">Залиште ваше звернення технічним майстрам кузні</p></div>
                 <div className="service-form-box">
                   <form onSubmit={handleSupportSubmit} className="bank-form">
                     <div className="input-group">
@@ -454,7 +455,7 @@ function App() {
               </>
             )}
 
-            {/* ОСОБИСТИЙ ПРОФІЛЬ КЛІЄНТА */}
+            {/* ОСОБИСТИЙ ПРОФІЛЬ КЛІЄНТА (ВКЛАДКА 5) */}
             {activeTab === 'profile' && (
               <>
                 <div className="welcome-section"><h2 className="page-title">Особистий Профіль 🏛️</h2><p className="greet-label">Персональні дані громадянина Hephaestus Construct</p></div>
@@ -476,7 +477,7 @@ function App() {
             )}
           </div>
 
-          {/* 📱 П’ЯТИІКОННА НАВІГАЦІЙНА ПАНЕЛЬ */}
+          {/* 📱 ОНОВЛЕНА НАВІГАЦІЯ: ТЕПЕР ТУТ РІВНО 5 КНОПОК */}
           <nav className="nav-bar">
             <button className="nav-button" style={{color: activeTab === 'home' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('home')}>🏠<span className="nav-label">Головна</span></button>
             <button className="nav-button" style={{color: activeTab === 'services' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('services')}>🛒<span className="nav-label">Послуги</span></button>
