@@ -66,7 +66,10 @@ function App() {
       if (newUser) {
         const randomIban = 'UA' + Math.floor(10000000000 + Math.random() * 90000000000).toString()
         await supabase.from('accounts').insert([{ user_id: newUser.user_id, balance: 5000.00, iban: randomIban }])
+        
+        // Початкова карта отримує свої законні 5000 UAH
         await supabase.from('cards').insert([{ user_id: newUser.user_id, card_number: '4441 1144 2255 3366', card_type: 'gold', expiry_date: '06/31', card_balance: 5000.00 }])
+        
         await supabase.from('transactions').insert([{ user_id: newUser.user_id, amount: 5000.00, total_amount: 5000.00, transaction_type: 'INCOME', description: '🎉 Стартовий бонус Hephaestus Premium' }])
         alert('Акаунт успішно створено!');
         bank.setIsLoggedIn(newUser.user_id, 'CLIENT')
@@ -92,7 +95,7 @@ function App() {
       alert('Пароль успішно оновлено! 🎉'); setNewPassword(''); bank.setAuthMode('login');
     } catch (err) {
       console.error(err)
-    } finally {
+    } finaly {
       bank.setLoading(false)
     }
   }
@@ -179,7 +182,7 @@ function App() {
 
       setIsModalOpen(false); setIsSending(false); setTransferAmount(''); setTargetCardNumber(''); setTransferDesc('');
       await bank.loadSystemData(bank.currentUserId, 'CLIENT')
-      alert('Переказ за номером картки успішно виконано! 🚀')
+      alert('Переказ за номером картки успешно виконано! 🚀')
     } catch (err) {
       console.error(err); setIsSending(false);
     }
@@ -206,7 +209,6 @@ function App() {
     alert('Оплата пройшла успішно!')
   }
 
-  // Кредитування
   const handleCreditFormSubmit = (e) => {
     e.preventDefault();
     bank.handleTakeCredit(creditAmountInput);
@@ -297,7 +299,7 @@ function App() {
                   <div style={{marginTop: '6px'}}><span style={{fontSize: '11px', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold', background: bank.verificationStatus === 'VERIFIED' ? 'rgba(212,175,55,0.2)' : 'rgba(239,68,68,0.2)', color: bank.verificationStatus === 'VERIFIED' ? '#d4af37' : '#ef4444'}}>{bank.verificationStatus === 'VERIFIED' ? '🛡️ Верифікований клієнт' : '⚠️ Акаунт не верифіковано'}</span></div>
                 </div>
 
-                {/* 📊 1. ДОДАНО: КУРС ВАЛЮТ БАНКУ HEPHAESTUS */}
+                {/* КУРС ВАЛЮТ БАНКУ HEPHAESTUS */}
                 <div className="math-report-card" style={{padding: '12px 18px', borderLeft: '4px solid #d4af37'}}>
                   <p style={{margin: '0 0 6px 0', fontSize: '11px', color: '#a1a1aa', fontWeight: 'bold', letterSpacing: '1px'}}>🏛️ ОФІЦІЙНИЙ КУРС ВАЛЮТ КУЗНІ</p>
                   <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '14px'}}>
@@ -345,7 +347,7 @@ function App() {
                   🔨 Викувати нову картку ({cardTheme.toUpperCase()})
                 </button>
 
-                {/* 🪙 2. ДОДАНО: ФУНКЦІЯ ОТРИМАННЯ КРЕДИТУ НА БАЛАНС */}
+                {/* ФУНКЦІЯ ОТРИМАННЯ КРЕДИТУ НА БАЛАНС */}
                 <div className="service-form-box" style={{marginTop: '5px', borderColor: '#78350f'}}>
                   <h4 style={{margin: '0 0 6px 0', color: '#d4af37', fontSize: '13px'}}>⚡ Миттєвий кредит «Благословення Зевса»</h4>
                   <form onSubmit={handleCreditFormSubmit} style={{display: 'flex', gap: '10px'}}>
@@ -358,7 +360,7 @@ function App() {
                   <button className="action-button" onClick={() => setIsModalOpen(true)}><span>💸</span><span className="action-label" style={{color: '#e5c158', fontWeight: 'bold'}}>Переказати</span></button>
                   <button className="action-button" style={{borderColor: '#b45309'}} onClick={() => setIsWithdrawOpen(true)}><span>🏧</span><span className="action-label" style={{color: '#e5c158'}}>Вивести</span></button>
                   <button className="action-button" onClick={() => setActiveTab('services')}><span>➕</span><span className="action-label">Послуги</span></button>
-                  <button className="action-button" style={{borderColor: '#d4af37'}} onClick={() => setIsSettingsOpen(true)}><span>⚙️</span><span className="action-label" style={{color: '#d4af37'}}>Пароль</span></button>
+                  <button className="action-button" style={{borderColor: '#d4af37'}} onClick={() => setIsSettingsOpen(true)}><span>⚙️</span><span className="action-label" style={{color: '#d4af37'}}>Налаштування</span></button>
                 </div>
 
                 <div className="history-section">
@@ -382,7 +384,7 @@ function App() {
 
             {activeTab === 'services' && (
               <>
-                <div className="welcome-section"><h2 className="page-title">Платежі та послуги</h2></div>
+                <div className="welcome-section"><h2 className="page-title">Платежі та послуги</h2><p className="greet-label">Оберіть категорію для швидкої оплати</p></div>
                 <div className="services-grid4">
                   <div className="service-card" onClick={() => { setActiveServiceForm('phone'); setServiceTarget(''); setServiceAmount(''); }}>📱 <p className="service-name">Мобільний зв'язок</p></div>
                   <div className="service-card" onClick={() => { setActiveServiceForm('internet'); setServiceTarget(''); setServiceAmount(''); }}>🌐 <p className="service-name">Інтернет та ТБ</p></div>
@@ -413,26 +415,57 @@ function App() {
                   <div style={{marginBottom: '10px'}}>🔨 Кузня та товари: **{bank.catSilpo || 0} ₴**</div>
                   <div style={{marginBottom: '10px'}}>📱 Мобільний зв'язок: **{bank.catPhone || 0} ₴**</div>
                   <div style={{marginBottom: '10px'}}>🌐 Інтернет та ТБ: **{bank.catInternet || 0} ₴**</div>
-                  <div style={{marginBottom: '10px'}}>🪙 Перекази карт: **{bank.catTransfers || 0} ₴**</div>
+                  <div style={{marginBottom: '10px'}}>💸 Перекази карт: **{bank.catTransfers || 0} ₴**</div>
                   <hr style={{borderColor: '#453624', margin: '15px 0'}} />
                   <p style={{margin: 0, fontSize: '13px', color: '#cbd5e1'}}>Вільний залишок капіталу: **{bank.savingsRate || 0}%**</p>
                 </div>
               </>
             )}
 
-            {/* 👤 3. ДОДАНО: НОВА ПОВНОЦІННА ВКЛАДКА «ОСОБИСТЕ» (ПЕРСОНАЛЬНІ ДАНІ КЛІЄНТА) */}
+            {/* 🔥 ТУТ ПОВНІСТЮ ПОВЕРНЕНО ТА ВІДНОВЛЕНО СЛУЖБУ ПІДТРИМКИ КУЗНІ */}
+            {activeTab === 'support' && (
+              <>
+                <div className="welcome-section"><h2 className="page-title">Служба технічної підтримки 💬</h2><p className="greet-label">Залиште ваше звернення майстрам</p></div>
+                <div className="service-form-box">
+                  <form onSubmit={handleSupportSubmit} className="bank-form">
+                    <div className="input-group">
+                      <label className="bank-label">Опишіть вашу проблему оператору</label>
+                      <textarea required rows="3" placeholder="Опишіть деталі тут..." value={supportMessage} onChange={(e) => setSupportMessage(e.target.value)} className="bank-input" style={{fontFamily: 'inherit', resize: 'none'}} />
+                    </div>
+                    <button type="submit" className="submit-button">Надіслати звернення</button>
+                  </form>
+                </div>
+
+                <div className="history-section" style={{marginTop: '10px'}}>
+                  <h3 className="history-title">📜 Ваші попередні звернення</h3>
+                  <div className="transactions-list">
+                    {(bank.clientTickets || []).length === 0 ? <p className="status-message">Звернень ще немає</p> : bank.clientTickets.map(t => (
+                      <div key={t.ticket_id} className="tx-item" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '6px', paddingBottom: '10px'}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: '#a1a1aa'}}>
+                          <span>{t.created_at ? t.created_at.split('T')[0] : 'Сьогодні'}</span>
+                          <span style={{color: t.status === 'OPEN' ? '#ef4444' : '#d4af37', fontWeight: 'bold'}}>{t.status}</span>
+                        </div>
+                        <p style={{margin: 0, fontSize: '14px'}}>Ви: {t.message}</p>
+                        {t.reply && <p style={{margin: 0, fontSize: '13px', color: '#d4af37', fontWeight: '500', paddingLeft: '8px', borderLeft: '2px solid #d4af37'}}>Гефест: {t.reply}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ОСОБИСТИЙ ПРОФІЛЬ КЛІЄНТА */}
             {activeTab === 'profile' && (
               <>
                 <div className="welcome-section"><h2 className="page-title">Особистий Профіль 🏛️</h2><p className="greet-label">Персональні дані громадянина Hephaestus Construct</p></div>
                 <div className="service-form-box" style={{textAlign: 'center', padding: '30px 20px'}}>
-                  {/* Стильне кругле фото профілю */}
-                  <div style={{width: '90px', height: '90px', borderRadius: '50%', background: 'linear-gradient(135deg, #d4af37, #78350f)', margin: '0 auto 15px auto', display: 'flex', alignItems: 'center', justifyindex: 'center', justifyContent: 'center', fontSize: '38px', boxShadow: '0 4px 15px rgba(212,175,55,0.2)'}}>
+                  <div style={{width: '90px', height: '90px', borderRadius: '50%', background: 'linear-gradient(135deg, #d4af37, #78350f)', margin: '0 auto 15px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '38px', boxShadow: '0 4px 15px rgba(212,175,55,0.2)'}}>
                     👤
                   </div>
                   <h3 style={{color: '#fff', margin: '5px 0', fontSize: '20px'}}>{bank.userFullName}</h3>
                   <p style={{color: '#d4af37', fontSize: '12px', margin: '0 0 25px 0', fontWeight: 'bold', letterSpacing: '1px'}}>PREMIUM VIP CLIENT</p>
                   
-                  <div style={{display: 'flex', flexDirection: 'column', gap: '15px', textindex: 'left', textAlign: 'left', borderTop: '1px solid #453624', paddingTop: '20px'}}>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '15px', textAlign: 'left', borderTop: '1px solid #453624', paddingTop: '20px'}}>
                     <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '14px'}}><span style={{color: '#a1a1aa'}}>📧 Електронна пошта:</span><strong style={{color: '#fff'}}>{bank.userEmail}</strong></div>
                     <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '14px'}}><span style={{color: '#a1a1aa'}}>📱 Номер телефону:</span><strong style={{color: '#fff'}}>{bank.userPhone}</strong></div>
                     <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '14px'}}><span style={{color: '#a1a1aa'}}>🛡️ Статус KYC:</span><strong style={{color: bank.verificationStatus === 'VERIFIED' ? '#d4af37' : '#ef4444'}}>{bank.verificationStatus}</strong></div>
@@ -443,11 +476,12 @@ function App() {
             )}
           </div>
 
+          {/* 📱 П’ЯТИІКОННА НАВІГАЦІЙНА ПАНЕЛЬ */}
           <nav className="nav-bar">
             <button className="nav-button" style={{color: activeTab === 'home' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('home')}>🏠<span className="nav-label">Головна</span></button>
             <button className="nav-button" style={{color: activeTab === 'services' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('services')}>🛒<span className="nav-label">Послуги</span></button>
             <button className="nav-button" style={{color: activeTab === 'analytics' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('analytics')}>📊<span className="nav-label">Аналітика</span></button>
-            {/* ОНОВЛЕНО НАВІГАЦІЮ: ЧЕТВЕРТА ВКЛАДКА ТЕПЕР ВЕДЕ В ОСОБИСТЕ */}
+            <button className="nav-button" style={{color: activeTab === 'support' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('support')}>💬<span className="nav-label">Підтримка</span></button>
             <button className="nav-button" style={{color: activeTab === 'profile' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('profile')}>👤<span className="nav-label">Особисте</span></button>
           </nav>
         </div>

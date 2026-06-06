@@ -7,7 +7,7 @@
   align-items: center;
   font-family: "Segoe UI", Roboto, sans-serif;
   color: #f1f5f9;
-  padding: 20px 15px 120px 15px;
+  padding: 20px 15px 130px 15px; /* ПОЛАГОДЖЕНО: Збільшено відступ під 5 кнопок меню! */
   box-sizing: border-box;
 }
 
@@ -205,7 +205,7 @@
   box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
 }
 
-/* 📱 НАВІГАЦІЯ */
+/* 📱 ПОЛАГОДЖЕНА НАВІГАЦІЙНА ПАНЕЛЬ ДЛЯ 5 КНОПОК */
 .nav-bar { 
   position: fixed; 
   bottom: 0; 
@@ -213,7 +213,7 @@
   transform: translateX(-50%); 
   width: 100%; 
   max-width: 390px; 
-  height: 70px; 
+  height: 75px; 
   background: rgba(26, 29, 33, 0.96); 
   backdrop-filter: blur(10px); 
   border-top: 1px solid #4a3b2c; 
@@ -221,16 +221,18 @@
   justify-content: space-around; 
   align-items: center; 
   z-index: 999; 
+  gap: 2px;
 }
-.nav-button { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: #a1a1aa; transition: color 0.2s; }
-.nav-label { font-size: 10px; font-weight: 600; }
+.nav-button { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: #a1a1aa; transition: color 0.2s; flex: 1; }
+.nav-label { font-size: 9px; font-weight: 600; }
 
-/* Модалки */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(17, 20, 24, 0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; padding: 20px; z-index: 1000; }
+/* Спливаючі вікна модалок */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; padding: 20px; z-index: 1000; }
 .modal-content { background: #1a1d21; border: 1px solid #4a3b2c; border-radius: 24px; padding: 24px; width: 100%; max-width: 350px; animation: fadeInUp 0.3s ease-out; }
 .admin-user-row { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #4a3b2c; width: 100%; }
 .admin-action-btn { background: #d4af37; border: none; border-radius: 6px; padding: 4px 10px; color: #111418; font-size: 12px; font-weight: 600; cursor: pointer; }
 
+/* Анімація появи */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
