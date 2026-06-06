@@ -210,6 +210,21 @@ function App() {
     alert('Оплата пройшла успішно!')
   }
 
+  const handleSupportSubmit = async (e) => {
+    e.preventDefault()
+    if (!supportMessage.trim()) return;
+    
+    const { error } = await supabase.from('support_tickets').insert([{ user_id: bank.currentUserId, message: supportMessage.trim() }])
+    if (error) {
+      alert('Помилка відправки звернення');
+      return;
+    }
+    
+    setSupportMessage('')
+    await bank.loadSystemData(bank.currentUserId, 'CLIENT')
+    alert('Звернення надіслано технічним майстрам кузні!')
+  }
+
   const handleCreditFormSubmit = (e) => {
     e.preventDefault();
     bank.handleTakeCredit(creditAmountInput);
@@ -360,7 +375,7 @@ function App() {
                 <div className="actions-grid" style={{marginTop: '15px'}}>
                   <button className="action-button" onClick={() => setIsModalOpen(true)}><span>💸</span><span className="action-label" style={{color: '#e5c158', fontWeight: 'bold'}}>Переказати</span></button>
                   <button className="action-button" style={{borderColor: '#b45309'}} onClick={() => setIsWithdrawOpen(true)}><span>🏧</span><span className="action-label" style={{color: '#e5c158'}}>Вивести</span></button>
-                  <button className="action-button" onClick={() => setActiveTab('services')}><span>➕</span><span className="action-label">Послуги</span></button>
+                  <button className="action-button" onClick={() => setActiveTab('services')}><span>➕</span><span className="nav-label">Послуги</span></button>
                   <button className="action-button" style={{borderColor: '#d4af37'}} onClick={() => setIsSettingsOpen(true)}><span>⚙️</span><span className="action-label" style={{color: '#d4af37'}}>Налаштування</span></button>
                 </div>
 
@@ -423,7 +438,7 @@ function App() {
               </>
             )}
 
-            {/* 🔥 ТУТ СЛУЖБА ПІДТРИМКИ КУЗНІ (ВКЛАДКА 4) */}
+            {/* 🔥 ПОЛУНОЦІННИЙ ЕКРАН ПІДТРИМКИ КУЗНІ (БЕЗПЕЧНИЙ РЕНДЕРИНГ МАСИВУ) */}
             {activeTab === 'support' && (
               <>
                 <div className="welcome-section"><h2 className="page-title">Служба технічної підтримки 💬</h2><p className="greet-label">Залиште ваше звернення технічним майстрам кузні</p></div>
@@ -440,16 +455,24 @@ function App() {
                 <div className="history-section" style={{marginTop: '10px'}}>
                   <h3 className="history-title">📜 Ваші попередні звернення</h3>
                   <div className="transactions-list">
-                    {(bank.clientTickets || []).length === 0 ? <p className="status-message">Звернень ще немає</p> : bank.clientTickets.map(t => (
-                      <div key={t.ticket_id} className="tx-item" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '6px', paddingBottom: '10px'}}>
-                        <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: '#a1a1aa'}}>
-                          <span>{t.created_at ? t.created_at.split('T')[0] : 'Сьогодні'}</span>
-                          <span style={{color: t.status === 'OPEN' ? '#ef4444' : '#d4af37', fontWeight: 'bold'}}>{t.status}</span>
+                    {(!bank.clientTickets || bank.clientTickets.length === 0) ? (
+                      <p className="status-message">Звернень ще немає</p>
+                    ) : (
+                      bank.clientTickets.map((t) => (
+                        <div key={t.ticket_id} className="tx-item" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '6px', paddingBottom: '10px'}}>
+                          <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: '#a1a1aa'}}>
+                            <span>{t.created_at ? t.created_at.split('T')[0] : 'Сьогодні'}</span>
+                            <span style={{color: t.status === 'OPEN' ? '#ef4444' : '#d4af37', fontWeight: 'bold'}}>{t.status}</span>
+                          </div>
+                          <p style={{margin: 0, fontSize: '14px'}}>Ви: {t.message}</p>
+                          {t.reply && (
+                            <p style={{margin: 0, fontSize: '13px', color: '#d4af37', fontWeight: '500', paddingLeft: '8px', borderLeft: '2px solid #d4af37', width: '100%', boxSizing: 'border-box'}}>
+                              Гефест: {t.reply}
+                            </p>
+                          )}
                         </div>
-                        <p style={{margin: 0, fontSize: '14px'}}>Ви: {t.message}</p>
-                        {t.reply && <p style={{margin: 0, fontSize: '13px', color: '#d4af37', fontWeight: '500', paddingLeft: '8px', borderLeft: '2px solid #d4af37'}}>Гефест: {t.reply}</p>}
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               </>
@@ -477,7 +500,7 @@ function App() {
             )}
           </div>
 
-          {/* 📱 ОНОВЛЕНА НАВІГАЦІЯ: ТЕПЕР ТУТ РІВНО 5 КНОПОК */}
+          {/* 📱 П’ЯТИІКОННА НАВІГАЦІЙНА ПАНЕЛЬ */}
           <nav className="nav-bar">
             <button className="nav-button" style={{color: activeTab === 'home' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('home')}>🏠<span className="nav-label">Головна</span></button>
             <button className="nav-button" style={{color: activeTab === 'services' ? '#d4af37' : '#a1a1aa'}} onClick={() => setActiveTab('services')}>🛒<span className="nav-label">Послуги</span></button>
