@@ -157,13 +157,13 @@ function App() {
       }])
       setIsWithdrawOpen(false); setTransferAmount(''); setTargetCardNumber(''); setIsSending(false);
       await bank.loadSystemData(bank.currentUserId, 'CLIENT')
-      alert('Вивід коштів успешно проведено! 💸')
+      alert('Вивід коштів успішно проведено! 💸')
     } catch (err) {
       console.error(err); setIsSending(false);
     }
   }
 
-  // 🔥 ОНОВЛЕНО: Розумний переказ за РЕАЛЬНИМ номером картки з пошуком по базі даних Supabase
+  // 🔥 ПОВНІСТЮ ПОЛАГОДЖЕНО: 100% захист від пробілів при переказах
   const handleTransferSubmit = async (e) => {
     e.preventDefault()
     if (bank.verificationStatus !== 'VERIFIED') return alert('Помилка! Ваш акаунт не верифіковано.');
@@ -175,33 +175,38 @@ function App() {
       return alert('Недостатньо коштів на карті або введена некоректна сума!');
     }
 
-    // Прибираємо пробіли для точного порівняння рядків у базі
+    // Очищаємо введені користувачем цифри від будь-яких пробілів
     const cleanInputNumber = targetCardNumber.replace(/\s+/g, '');
 
     try {
       setIsSending(true)
 
-      // 🔍 Пошук картки отримувача в базі даних Supabase за її номером
+      // Завантажуємо всі карти з бази Supabase для порівняння без пробілів
       const { data: allCards, error: cardErr } = await supabase.from('cards').select('card_id, user_id, card_balance, card_number')
       if (cardErr) throw cardErr;
 
-      const targetCard = allCards.find(c => c.card_number.replace(/\s+/g, '') === cleanInputNumber);
+      // Очищаємо номери з бази від пробілів прямо під час пошуку
+      const targetCard = allCards.find(c => {
+        const cleanDbNumber = String(c.card_number).replace(/\s+/g, '');
+        return cleanDbNumber === cleanInputNumber;
+      });
 
       if (!targetCard) {
         setIsSending(false)
-        return alert('Картку отримувача з таким номером не знайдено в системі! Перевірте правильність введення.');
+        return alert('Картку отримувача з таким номером не знайдено в системі Hephaestus! Перевірте правильність введення.');
       }
 
-      // 1. Зменшуємо баланс на карті списання
+      // 1. Зменшуємо баланс на карті відправника
       await supabase.from('cards').update({ card_balance: Number(activeCard.card_balance) - amountNum }).eq('card_id', activeCard.card_id)
 
       // 2. Збільшуємо баланс на карті отримувача
       await supabase.from('cards').update({ card_balance: Number(targetCard.card_balance || 0) + amountNum }).eq('card_id', targetCard.card_id)
 
-      // 3. Фіксуємо транзакцію для відправника
+      // 3. Визначаємо ім'я отримувача для красивого запису в історію
       const { data: recipientUser } = await supabase.from('users').select('full_name').eq('user_id', targetCard.user_id).maybeSingle()
       const recipientName = recipientUser ? ` (${recipientUser.full_name})` : '';
 
+      // Фіксуємо витрату в твоїй історії
       await supabase.from('transactions').insert([{ 
         user_id: bank.currentUserId, 
         amount: -amountNum, 
@@ -210,7 +215,7 @@ function App() {
         description: `💸 Переказ на карту ${targetCard.card_number}${recipientName}` 
       }])
 
-      // 4. Якщо переказ іншій людині — фіксуємо їй надходження коштів в історію
+      // 4. Якщо переказ іншій людині (наприклад, Вікторії) — фіксуємо їй надходження коштів
       if (targetCard.user_id !== bank.currentUserId) {
         await supabase.from('transactions').insert([{ 
           user_id: targetCard.user_id, 
@@ -226,7 +231,7 @@ function App() {
       alert('Грошовий переказ успішно проведено! 🚀')
     } catch (err) {
       console.error(err); setIsSending(false);
-      alert('Помилка під час обробки транзакції шлюзом.');
+      alert('Помилка під час обробки транзакції хмарним шлюзом.');
     }
   }
 
@@ -295,7 +300,7 @@ function App() {
               <h2 className="auth-title">Відновлення пароля 🔒</h2>
               <form onSubmit={handleForgotPasswordSubmit} className="bank-form">
                 <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Ваш Email</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
-                <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Новий пароль (SHA-256)</label><input type="password" placeholder="Мінімум 6 symbols..." required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bank-input" /></div>
+                <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Новий пароль (SHA-256)</label><input type="password" placeholder="Мінімум 6 символів..." required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bank-input" /></div>
                 <button type="submit" className="submit-button">Встановити новий пароль</button>
               </form>
               <p className="switch-auth-text"><span className="switch-auth-link" onClick={() => { bank.setAuthMode('login'); setNewPassword(''); }}>Повернутися до входу</span></p>
@@ -331,7 +336,7 @@ function App() {
         
         /* 🏢 ПАНЕЛЬ ПРАЦІВНИКА */
         <div className="app-screen">
-          <div className="welcome-section"><h2 className="page-title">Панель Працівника Банку</h2><p className="greet-label">Управління клієнтами</p></div>
+          <div className="welcome-section"><h2 className="ページ-title">Панель Працівника Банку</h2><p className="greet-label">Управління клієнтами</p></div>
           <div className="history-section">
             <h3 className="history-title">📋 Запити на верифікацію (KYC)</h3>
             <div className="transactions-list">
