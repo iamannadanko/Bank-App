@@ -471,7 +471,7 @@ function App() {
 
             {activeTab === 'analytics' && (
               <>
-                <div className="welcome-section"><h2 className="page-title">Аналітика витрат</h2></div>
+                <div className="welcome-section"><h2 className="page-title">Аналітика витрат</h2></div> 
                 <div className="math-report-card">
                   <h4 style={{margin: '0 0 15px 0', color: '#d4af37'}}>Категоріальний розподіл витрат:</h4>
                   <div style={{marginBottom: '10px'}}>🔨 Кузня та товари: {bank.catSilpo || 0} ₴</div>
