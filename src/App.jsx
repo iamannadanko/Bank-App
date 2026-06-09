@@ -474,12 +474,12 @@ function App() {
                 <div className="welcome-section"><h2 className="page-title">Аналітика витрат</h2></div>
                 <div className="math-report-card">
                   <h4 style={{margin: '0 0 15px 0', color: '#d4af37'}}>Категоріальний розподіл витрат:</h4>
-                  <div style={{marginBottom: '10px'}}>🔨 Кузня та товари: **{bank.catSilpo || 0} ₴**</div>
-                  <div style={{marginBottom: '10px'}}>📱 Мобільний зв'язок: **{bank.catPhone || 0} ₴**</div>
-                  <div style={{marginBottom: '10px'}}>🌐 Інтернет та ТБ: **{bank.catInternet || 0} ₴**</div>
-                  <div style={{marginBottom: '10px'}}>🪙 Перекази карт: **{bank.catTransfers || 0} ₴**</div>
+                  <div style={{marginBottom: '10px'}}>🔨 Кузня та товари: {bank.catSilpo || 0} ₴</div>
+                  <div style={{marginBottom: '10px'}}>📱 Мобільний зв'язок: {bank.catPhone || 0} ₴</div>
+                  <div style={{marginBottom: '10px'}}>🌐 Інтернет та ТБ: {bank.catInternet || 0} ₴</div>
+                  <div style={{marginBottom: '10px'}}>🪙 Перекази карт: {bank.catTransfers || 0} ₴</div>
                   <hr style={{borderColor: '#453624', margin: '15px 0'}} />
-                  <p style={{margin: 0, fontSize: '13px', color: '#cbd5e1'}}>Вільний залишок капіталу: **{bank.savingsRate || 0}%**</p>
+                  <p style={{margin: 0, fontSize: '13px', color: '#cbd5e1'}}>Вільний залишок капіталу: {bank.savingsRate || 0}%</p>
                 </div>
               </>
             )}
