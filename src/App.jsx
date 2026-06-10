@@ -25,6 +25,8 @@ function App() {
   const [isVerifying, setIsVerifying] = useState(false)
   
   const [adminReplyText, setAdminReplyText] = useState({})
+  const [phoneError, setPhoneError] = useState('')
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   // Вікна модалок
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -42,6 +44,42 @@ function App() {
   const [activeServiceForm, setActiveServiceForm] = useState(null)
   const [serviceTarget, setServiceTarget] = useState('')
   const [serviceAmount, setServiceAmount] = useState('')
+
+  // Валідація українського номера телефону
+  const validateUkrainianPhone = (phone) => {
+    // Видаляємо пробіли та дефіси для перевірки
+    const cleaned = phone.replace(/[\s\-()]/g, '')
+    // Формати: +380XXXXXXXXX, 380XXXXXXXXX, 0XXXXXXXXX
+    const fullFormat = /^\+?380\d{9}$/
+    const shortFormat = /^0\d{9}$/
+    return fullFormat.test(cleaned) || shortFormat.test(cleaned)
+  }
+
+  const handlePhoneChange = (e) => {
+    const value = e.target.value
+    setAuthPhone(value)
+    if (value.trim() && !validateUkrainianPhone(value)) {
+      setPhoneError('Невірний формат. Використовуйте: +380XXXXXXXXX')
+    } else {
+      setPhoneError('')
+    }
+  }
+
+  // Видалення акаунту
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'ВИДАЛИТИ') {
+      alert('Для підтвердження введіть слово "ВИДАЛИТИ"')
+      return
+    }
+    const confirmed = window.confirm(
+      '⚠️ УВАГА! Ви впевнені, що хочете НАЗАВЖДИ видалити свій акаунт? Усі ваші дані, картки, транзакції та звернення будуть знищені без можливості відновлення!'
+    )
+    if (!confirmed) return
+    await bank.handleDeleteAccount()
+    setDeleteConfirmText('')
+    setIsSettingsOpen(false)
+    alert('Ваш акаунт та всі дані успішно видалено з системи Hephaestus. 🏛️')
+  }
 
   // Розумний обробник авторизації
   const handleAuthSubmit = async (e) => {
@@ -64,6 +102,7 @@ function App() {
       if (existingUser) { bank.setLoading(false); return alert('Цей Email вже зайнятий!'); }
 
       if (!authPhone.trim()) { bank.setLoading(false); return alert('Будь ласка, введіть номер телефону!'); }
+      if (!validateUkrainianPhone(authPhone)) { bank.setLoading(false); return alert('Невірний формат номера телефону! Використовуйте український формат: +380XXXXXXXXX'); }
 
       const { data: newUser } = await supabase.from('users').insert([{ 
         full_name: authName.trim(), 
@@ -312,7 +351,11 @@ function App() {
                 {bank.authMode === 'register' && (
                   <>
                     <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Повне ім'я</label><input type="text" placeholder="Данько Анна" required value={authName} onChange={(e) => setAuthName(e.target.value)} className="bank-input" /></div>
-                    <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Номер телефону</label><input type="text" placeholder="+380970000000" required value={authPhone} onChange={(e) => setAuthPhone(e.target.value)} className="bank-input" /></div>
+                    <div style={{textAlign: 'left'}} className="input-group">
+                      <label className="bank-label">Номер телефону</label>
+                      <input type="tel" placeholder="+380970000000" required value={authPhone} onChange={handlePhoneChange} className="bank-input" style={phoneError ? {borderColor: '#ef4444'} : {}} />
+                      {phoneError && <p style={{color: '#ef4444', fontSize: '11px', margin: '4px 0 0 0'}}>{phoneError}</p>}
+                    </div>
                   </>
                 )}
                 <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Електронна пошта</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
@@ -583,21 +626,61 @@ function App() {
         </div>
       )}
 
-      {/* ⚙️ МОДАЛКА НАЛАШТУВАНЬ ПАРОЛЯ */}
+      {/* ⚙️ МОДАЛКА НАЛАШТУВАНЬ */}
       {isSettingsOpen && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-              <h3>Налаштування безпеки ⚙️</h3>
-              <button onClick={() => setIsSettingsOpen(false)} style={{background: 'none', border: 'none', color: '#d4af37', fontSize: '18px', cursor: 'pointer'}}>✕</button>
+              <h3>Налаштування ⚙️</h3>
+              <button onClick={() => { setIsSettingsOpen(false); setDeleteConfirmText(''); }} style={{background: 'none', border: 'none', color: '#d4af37', fontSize: '18px', cursor: 'pointer'}}>✕</button>
             </div>
-            <form onSubmit={handleChangePassword} className="bank-form">
-              <div className="input-group">
-                <label className="bank-label">Новий пароль (SHA-256)</label>
-                <input type="password" required placeholder="Мінімум 6 символів..." value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bank-input" />
+            
+            {/* Зміна пароля */}
+            <div style={{marginBottom: '25px'}}>
+              <h4 style={{color: '#d4af37', margin: '0 0 12px 0', fontSize: '14px'}}>🔒 Зміна пароля</h4>
+              <form onSubmit={handleChangePassword} className="bank-form">
+                <div className="input-group">
+                  <label className="bank-label">Новий пароль (SHA-256)</label>
+                  <input type="password" required placeholder="Мінімум 6 символів..." value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bank-input" />
+                </div>
+                <button type="submit" className="submit-button">Оновити пароль</button>
+              </form>
+            </div>
+
+            {/* Видалення акаунту */}
+            <div style={{borderTop: '1px solid #453624', paddingTop: '20px'}}>
+              <h4 style={{color: '#ef4444', margin: '0 0 8px 0', fontSize: '14px'}}>🗑️ Видалення акаунту</h4>
+              <p style={{color: '#a1a1aa', fontSize: '12px', margin: '0 0 12px 0'}}>
+                Ця дія незворотна. Всі ваші дані, картки, транзакції та звернення будуть видалені назавжди.
+              </p>
+              <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                <input 
+                  type="text" 
+                  placeholder='Введіть "ВИДАЛИТИ" для підтвердження' 
+                  value={deleteConfirmText} 
+                  onChange={(e) => setDeleteConfirmText(e.target.value)} 
+                  className="bank-input" 
+                  style={{flex: 1, borderColor: '#ef4444'}} 
+                />
+                <button 
+                  onClick={handleDeleteAccount} 
+                  disabled={bank.loading}
+                  style={{
+                    background: deleteConfirmText === 'ВИДАЛИТИ' ? 'linear-gradient(135deg, #dc2626, #991b1b)' : '#374151',
+                    color: deleteConfirmText === 'ВИДАЛИТИ' ? '#fff' : '#6b7280',
+                    border: 'none', 
+                    padding: '10px 20px', 
+                    borderRadius: '10px', 
+                    cursor: deleteConfirmText === 'ВИДАЛИТИ' ? 'pointer' : 'not-allowed', 
+                    fontWeight: 'bold', 
+                    fontSize: '12px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {bank.loading ? '...' : 'Видалити акаунт'}
+                </button>
               </div>
-              <button type="submit" className="submit-button">Оновити пароль</button>
-            </form>
+            </div>
           </div>
         </div>
       )}

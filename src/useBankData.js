@@ -169,6 +169,28 @@ export function useBankData() {
     }
   }
 
+  // 🗑️ ВИДАЛЕННЯ АКАУНТУ ПОВНІСТЮ
+  const handleDeleteAccount = async () => {
+    if (!currentUserId) return;
+    try {
+      setLoading(true)
+      // Видаляємо всі пов'язані дані користувача
+      await supabase.from('support_tickets').delete().eq('user_id', currentUserId)
+      await supabase.from('transactions').delete().eq('user_id', currentUserId)
+      await supabase.from('cards').delete().eq('user_id', currentUserId)
+      await supabase.from('accounts').delete().eq('user_id', currentUserId)
+      await supabase.from('users').delete().eq('user_id', currentUserId)
+      
+      // Виходимо з системи
+      logoutUser()
+    } catch (err) {
+      console.error('Помилка видалення акаунту:', err)
+      alert('Помилка при видаленні акаунту. Спробуйте пізніше.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleCloseCard = async (cardId, cardNumber) => {
     if (userCards.length <= 1) {
       alert('Помилка! Не можна закрити останню карту банку.');
@@ -231,6 +253,6 @@ export function useBankData() {
     balance, setBalance, transactions, setTransactions, clientTickets, setClientTickets,
     allUsers, allTickets, loading, setLoading, hashPassword, loadSystemData,
     catSilpo, catPhone, catInternet, catTransfers, savingsRate,
-    userCards, handleCreateNewCard, handleCloseCard, handleTakeCredit
+    userCards, handleCreateNewCard, handleCloseCard, handleTakeCredit, handleDeleteAccount
   }
 }
