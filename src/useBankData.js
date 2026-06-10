@@ -227,7 +227,7 @@ export function useBankData() {
 
   return {
     isLoggedIn, setIsLoggedIn: loginUser, logoutUser, authMode, setAuthMode, currentUserId, setCurrentUserId,
-    userRole, setUserRole, verificationStatus, setVerificationStatus, userFullName, userEmail, userPhone,
+    userRole, setUserRole, verificationStatus, setVerificationStatus, userFullName, userEmail, userPhone, setUserPhone,
     balance, setBalance, transactions, setTransactions, clientTickets, setClientTickets,
     allUsers, allTickets, loading, setLoading, hashPassword, loadSystemData,
     catSilpo, catPhone, catInternet, catTransfers, savingsRate,
