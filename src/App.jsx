@@ -64,13 +64,16 @@ function App() {
       const { data: existingUser } = await supabase.from('users').select('user_id').eq('email', inputEmail).maybeSingle()
       if (existingUser) { bank.setLoading(false); return alert('Цей Email вже зайнятий!'); }
 
-      if (!authPhone.trim()) { bank.setLoading(false); return alert('Будь ласка, введіть номер телефону!'); }
+      const phoneValue = authPhone.trim();
+      const phoneRegex = /^\+380\d{9}$/;
+      if (!phoneValue) { bank.setLoading(false); return alert('Будь ласка, введіть номер телефону!'); }
+      if (!phoneRegex.test(phoneValue)) { bank.setLoading(false); return alert('Неправильний формат телефону. Використовуйте +380XXXXXXXXX (9 цифр).'); }
 
       const { data: newUser } = await supabase.from('users').insert([{
         full_name: authName.trim(),
         email: inputEmail,
         password_hash: hashedPassword,
-        phone_number: authPhone.trim(),
+        phone_number: phoneValue,
         role: 'CLIENT',
         verification_status: 'PENDING'
       }]).select().single()
@@ -313,7 +316,7 @@ function App() {
                 {bank.authMode === 'register' && (
                   <>
                     <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Повне ім'я</label><input type="text" placeholder="Данько Анна" required value={authName} onChange={(e) => setAuthName(e.target.value)} className="bank-input" /></div>
-                    <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Номер телефону</label><input type="text" placeholder="+380970000000" required value={authPhone} onChange={(e) => setAuthPhone(e.target.value)} className="bank-input" /></div>
+                    <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Номер телефону</label><input type="tel" placeholder="+380970000000" required pattern="\+380\d{9}" inputMode="tel" title="Формат: +380XXXXXXXXX" value={authPhone} onChange={(e) => setAuthPhone(e.target.value)} className="bank-input" /></div>
                   </>
                 )}
                 <div style={{textAlign: 'left'}} className="input-group"><label className="bank-label">Електронна пошта</label><input type="email" placeholder="client@mail.com" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bank-input" /></div>
