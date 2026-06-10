@@ -13,7 +13,7 @@ export function useBankData() {
   const [userRole, setUserRole] = useState(() => {
     return localStorage.getItem('bank_userRole') || 'CLIENT'
   })
-  
+ 
   const [verificationStatus, setVerificationStatus] = useState('PENDING')
   const [userFullName, setUserFullName] = useState('')
   const [userEmail, setUserEmail] = useState('')
@@ -76,6 +76,7 @@ export function useBankData() {
 
         let { data: cardsList } = await supabase.from('cards').select('*').eq('user_id', userId).order('card_id', { ascending: true })
         if (!cardsList || cardsList.length === 0) {
+          // ТУТ ЗАЛИШЕНО ГРОШІ НА ПОЧАТКОВІЙ КАРТЦІ (5000 UAH), ЯК ТИ Й ПРОСИЛА
           const defaultCard = { user_id: userId, card_number: '4441 1144 2255 3366', card_type: 'gold', expiry_date: '06/31', card_balance: 5000.00 }
           await supabase.from('cards').insert([defaultCard])
           cardsList = [defaultCard]
@@ -95,7 +96,6 @@ export function useBankData() {
     } catch (err) {
       console.error(err)
     } finally {
-      status === 'success'
       setLoading(false)
     }
   }
@@ -117,7 +117,7 @@ export function useBankData() {
         card_number: generatedNumber,
         card_type: themeName || 'cyber',
         expiry_date: '09/33',
-        card_balance: 0.00
+        card_balance: 0.00 // Наступні карти створюються порожніми
       }
 
       const { error } = await supabase.from('cards').insert([newCardObj])
@@ -137,6 +137,7 @@ export function useBankData() {
     }
   }
 
+  // 🔥 НОВА ФУНКЦІЯ: ОТРИМАННЯ КРЕДИТУ ВІД БАНКУ
   const handleTakeCredit = async (creditAmount) => {
     const amountNum = parseFloat(creditAmount)
     if (isNaN(amountNum) || amountNum <= 0) return alert('Введіть коректну суму кредиту!');
@@ -146,8 +147,10 @@ export function useBankData() {
 
     try {
       setLoading(true)
+      // Нараховуємо гроші на першу (головну) картку
       await supabase.from('cards').update({ card_balance: Number(mainCard.card_balance) + amountNum }).eq('card_id', mainCard.card_id)
-      
+     
+      // Записуємо надходження в історію транзакцій
       await supabase.from('transactions').insert([{
         user_id: currentUserId,
         amount: amountNum,
@@ -193,27 +196,6 @@ export function useBankData() {
     }
   }
 
-  // 🔥 ДОДАНО ФУНКЦІЮ: ВИДАЛЕННЯ АКАУНТА З БАЗИ ДАНИХ
-  const handleDeleteAccount = async () => {
-    const confirmDelete = window.confirm('⚠️ УВАГА! Ви впевнені, що хочете назавжди видалити свій банківський акаунт? Усі ваші картки, рахунки та історія транзакцій будуть безповоротно стерті з хмари Hephaestus!');
-    if (!confirmDelete) return;
-
-    try {
-      setLoading(true)
-      // Видаляємо рядок користувача (каскадні зв'язки автоматично очистять інші таблиці)
-      const { error } = await supabase.from('users').delete().eq('user_id', currentUserId)
-      if (error) throw error
-
-      alert('Ваш акаунт та всі повʼязані фінансові рахунки успішно ліквідовані. Дякуємо, що були з нами! 🏛️')
-      logoutUser()
-    } catch (err) {
-      console.error(err)
-      alert('Помилка при видаленні акаунта.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
     if (isLoggedIn && currentUserId) {
       loadSystemData(currentUserId, userRole)
@@ -249,7 +231,7 @@ export function useBankData() {
     balance, setBalance, transactions, setTransactions, clientTickets, setClientTickets,
     allUsers, allTickets, loading, setLoading, hashPassword, loadSystemData,
     catSilpo, catPhone, catInternet, catTransfers, savingsRate,
-    userCards, handleCreateNewCard, handleCloseCard, handleTakeCredit,
-    handleDeleteAccount // Експортуємо нову функцію у фронтенд
+    userCards, handleCreateNewCard, handleCloseCard, handleTakeCredit
   }
-}
+} 
+
